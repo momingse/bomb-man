@@ -1,30 +1,112 @@
-import type React from "react";
-
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { loginSchema, registerSchema } from "@/lib/validation";
+
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Login Form Setup
+  const {
+    register: registerLogin,
+    handleSubmit: handleLoginSubmit,
+    formState: { errors: loginErrors },
+    reset: resetLogin,
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  // Register Form Setup
+  const {
+    register: registerRegister,
+    handleSubmit: handleRegisterSubmit,
+    formState: { errors: registerErrors },
+    reset: resetRegister,
+  } = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
+
+  // Handle Login Submission
+  const onLoginSubmit = async (values: LoginFormValues) => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.message || "Login failed");
+      } else {
+        // Handle successful login (e.g., redirect or set auth state)
+        resetLogin();
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handle Register Submission
+  const onRegisterSubmit = async (values: RegisterFormValues) => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError(null);
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(values.password, salt);
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: values.username,
+          password: hashedPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.message || "Registration failed");
+      } else {
+        // Handle successful registration (e.g., redirect or show success)
+        resetRegister();
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -50,8 +132,12 @@ export default function AuthPage() {
               </TabsTrigger>
             </TabsList>
 
+            {/* Login Tab */}
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form
+                onSubmit={handleLoginSubmit(onLoginSubmit)}
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="username" className="pixel-label">
                     Username
@@ -59,7 +145,7 @@ export default function AuthPage() {
                   <Input
                     id="username"
                     placeholder="Enter username"
-                    required
+                    {...registerLogin("username")}
                     className="pixel-input"
                   />
                 </div>
@@ -71,10 +157,25 @@ export default function AuthPage() {
                     id="password"
                     type="password"
                     placeholder="Enter password"
-                    required
+                    {...registerLogin("password")}
                     className="pixel-input"
                   />
                 </div>
+                {registerErrors.username ? (
+                  <p className="text-red-500 text-sm">
+                    {registerErrors.username.message}
+                  </p>
+                ) : registerErrors.password ? (
+                  <p className="text-red-500 text-sm">
+                    {registerErrors.password.message}
+                  </p>
+                ) : registerErrors.confirmPassword ? (
+                  <p className="text-red-500 text-sm">
+                    {registerErrors.confirmPassword.message}
+                  </p>
+                ) : (
+                  error && <p className="text-red-500 text-sm">{error}</p>
+                )}
                 <Button
                   type="submit"
                   className="w-full pixel-button bg-[#e83b3b] hover:bg-[#c52f2f]"
@@ -85,8 +186,12 @@ export default function AuthPage() {
               </form>
             </TabsContent>
 
+            {/* Register Tab */}
             <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4">
+              <form
+                onSubmit={handleRegisterSubmit(onRegisterSubmit)}
+                className="space-y-4"
+              >
                 <div className="space-y-2">
                   <Label htmlFor="reg-username" className="pixel-label">
                     Username
@@ -94,19 +199,7 @@ export default function AuthPage() {
                   <Input
                     id="reg-username"
                     placeholder="Choose username"
-                    required
-                    className="pixel-input"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="pixel-label">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter email"
-                    required
+                    {...registerRegister("username")}
                     className="pixel-input"
                   />
                 </div>
@@ -118,10 +211,37 @@ export default function AuthPage() {
                     id="reg-password"
                     type="password"
                     placeholder="Create password"
-                    required
+                    {...registerRegister("password")}
                     className="pixel-input"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password" className="pixel-label">
+                    Confirm Password
+                  </Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm password"
+                    {...registerRegister("confirmPassword")}
+                    className="pixel-input"
+                  />
+                </div>
+                {registerErrors.username ? (
+                  <p className="text-red-500 text-sm">
+                    {registerErrors.username.message}
+                  </p>
+                ) : registerErrors.password ? (
+                  <p className="text-red-500 text-sm">
+                    {registerErrors.password.message}
+                  </p>
+                ) : registerErrors.confirmPassword ? (
+                  <p className="text-red-500 text-sm">
+                    {registerErrors.confirmPassword.message}
+                  </p>
+                ) : (
+                  error && <p className="text-red-500 text-sm">{error}</p>
+                )}
                 <Button
                   type="submit"
                   className="w-full pixel-button bg-[#3b82e8] hover:bg-[#2f6ac5]"
