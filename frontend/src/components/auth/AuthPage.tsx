@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { loginSchema, registerSchema } from "@/lib/validation";
 
-import bcrypt from "bcryptjs";
+import { loginRequest, registerRequest } from "@/api/auth";
+import { useNavigate } from "react-router";
 import { z } from "zod";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -17,6 +18,8 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   // Login Form Setup
   const {
@@ -53,12 +56,9 @@ export default function AuthPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
+      const response = await loginRequest({
+        username: values.username,
+        password: values.password,
       });
 
       if (!response.ok) {
@@ -67,6 +67,7 @@ export default function AuthPage() {
       } else {
         // Handle successful login (e.g., redirect or set auth state)
         resetLogin();
+        navigate("/playground");
       }
     } catch (err) {
       setError("An error occurred. Please try again.");
@@ -80,19 +81,10 @@ export default function AuthPage() {
     setIsLoading(true);
     setError(null);
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(values.password, salt);
-
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: values.username,
-          password: hashedPassword,
-        }),
+      const response = await registerRequest({
+        username: values.username,
+        password: values.password,
       });
 
       if (!response.ok) {
@@ -101,6 +93,7 @@ export default function AuthPage() {
       } else {
         // Handle successful registration (e.g., redirect or show success)
         resetRegister();
+        navigate("/playground");
       }
     } catch (err) {
       setError("An error occurred. Please try again.");

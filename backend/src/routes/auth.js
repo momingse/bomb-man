@@ -1,5 +1,6 @@
 import express from 'express';
 import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -15,7 +16,9 @@ router.post('/register', async (req, res) => {
     }
     
     // Create new user
-    const user = await User.create({ username, password });
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const user = await User.create({ username, password: hashedPassword });
     
     // Return user without password
     const userData = { id: user.id, username: user.username };
@@ -43,7 +46,7 @@ router.post('/login', async (req, res) => {
     }
     
     // Check password
-    const isPasswordValid = await user.comparePassword(password);
+    const isPasswordValid = bcrypt.compareSync(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
