@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch ./src/index.js | npx pino-pretty",
+    "dev": "node --watch ./src/server.js | npx pino-pretty",
     "lint": "eslint ."
   },
   "keywords": [],
@@ -18,11 +18,17 @@
   },
   "dependencies": {
     "axios": "^1.8.3",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^2.2.0",
+    "connect-session-sequelize": "^7.1.7",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.1",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
-    "socket.io": "^4.8.1"
+    "sequelize": "^6.37.7",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7"
   }
 }
