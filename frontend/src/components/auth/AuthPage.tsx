@@ -11,6 +11,7 @@ import { loginSchema, registerSchema } from "@/lib/validation";
 import { loginRequest, registerRequest } from "@/api/auth";
 import { useNavigate } from "react-router";
 import { z } from "zod";
+import { usePlayersStore } from "@/state/player";
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -18,6 +19,8 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { setPlayer } = usePlayersStore();
 
   const navigate = useNavigate();
 
@@ -65,7 +68,9 @@ export default function AuthPage() {
         const errorData = await response.json();
         setError(errorData.message || "Login failed");
       } else {
-        // Handle successful login (e.g., redirect or set auth state)
+        const { user } = await response.json();
+        setPlayer(user);
+
         resetLogin();
         navigate("/playground");
       }
@@ -91,7 +96,9 @@ export default function AuthPage() {
         const errorData = await response.json();
         setError(errorData.message || "Registration failed");
       } else {
-        // Handle successful registration (e.g., redirect or show success)
+        const { user } = await response.json();
+        setPlayer(user);
+
         resetRegister();
         navigate("/playground");
       }

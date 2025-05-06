@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Route, Routes } from "react-router";
 import AuthPage from "./components/auth/AuthPage";
-import PlaygroundPage from "./components/playground/page";
+import PlaygroundPage from "./components/playground/PlaygroundPage";
 import { RequireAuth } from "./components/RequireAuth";
-import RoomPage from "./components/room/page";
+import RoomPage from "./components/room/RoomPage";
 
 function App() {
   return (

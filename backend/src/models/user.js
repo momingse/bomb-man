@@ -11,6 +11,27 @@ const User = sequelize.define("User", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  wins: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  },
+  gamesPlayed: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  },
+  rank: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+  },
+  avatar: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: "🦸",
+  },
+
 });
 
 export default User;

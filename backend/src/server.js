@@ -1,55 +1,73 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import session from 'express-session';
-import SequelizeStore from 'connect-session-sequelize';
-import dotenv from 'dotenv';
-import { httpLogger } from './logger.js';
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import session from "express-session";
+import SequelizeStore from "connect-session-sequelize";
+import dotenv from "dotenv";
+import { Server } from "socket.io";
+import { httpLogger } from "./logger.js";
+import { createServer } from "http";
+import { socketHandler } from "./socket.js";
 
 // Import database configuration
-import sequelize from './config/db.js';
+import sequelize from "./config/db.js";
 
 // Import routes
-import authRoute from './routes/auth.js';
+import authRoute from "./routes/auth.js";
+import userRoute from "./routes/user.js";
 
 // Import models
-import './models/User.js';
+import "./models/User.js";
 
 dotenv.config();
 
-const app = express();
+const expressApp = express();
+const httpServer = createServer(expressApp);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:5173",
+    credentials: true,
+  },
+});
 
-app.use(httpLogger);
+socketHandler(io);
+
+expressApp.use(httpLogger);
 
 const SessionStore = SequelizeStore(session.Store);
 const store = new SessionStore({
   db: sequelize,
 });
 
-app.use(bodyParser.json());
-app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true,
-}));
+expressApp.use(bodyParser.json());
+expressApp.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'secret-key',
-  store: store,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-  },
-}));
+expressApp.use(
+  session({
+    secret: process.env.SESSION_SECRET || "secret-key",
+    store: store,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    },
+  }),
+);
 
 // Routes
-app.use('/auth', authRoute);
+expressApp.use("/auth", authRoute);
+expressApp.use("/user", userRoute);
 
 // Basic route for testing
-app.get('/', (req, res) => {
-  res.send('API is running');
+expressApp.get("/", (req, res) => {
+  res.send("API is running");
 });
 
 const startServer = async () => {
@@ -57,11 +75,11 @@ const startServer = async () => {
     await sequelize.sync();
     await store.sync();
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Error starting server:', error);
+    console.error("Error starting server:", error);
   }
 };
 
