@@ -302,8 +302,17 @@ export default function PlaygroundPage() {
     setShowCreateRoom(false);
   };
 
-  const handleJoinRoom = (roomId: string) => {
+  const handleJoinRoom = (room) => {
     // TODO: Implement room joining
+
+    const queryParams = new URLSearchParams({
+      id: room.id,
+      name: room.name,
+      // map: room.map,
+      maxPlayers: room.maxPlayers.toString(),
+    }).toString();
+
+    navigate(`/room?${queryParams}`);
   };
 
   const getLeaderboardIcon = (rank: number) => {
@@ -463,47 +472,24 @@ export default function PlaygroundPage() {
                         </select>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="game-mode" className="pixel-label">
-                          Game Mode
-                        </Label>
-                        <select
-                          id="game-mode"
-                          value={newRoom.mode}
-                          onChange={(e) =>
-                            setNewRoom({ ...newRoom, mode: e.target.value })
-                          }
-                          className="w-full pixel-input"
-                        >
-                          <option value="Battle Royale">Battle Royale</option>
-                          <option value="Team Deathmatch">
-                            Team Deathmatch
-                          </option>
-                          <option value="Capture the Flag">
-                            Capture the Flag
-                          </option>
-                          <option value="1v1 Duel">1v1 Duel</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="map" className="pixel-label">
-                          Map
-                        </Label>
-                        <select
-                          id="map"
-                          value={newRoom.map}
-                          onChange={(e) =>
-                            setNewRoom({ ...newRoom, map: e.target.value })
-                          }
-                          className="w-full pixel-input"
-                        >
-                          <option value="Classic">Classic</option>
-                          <option value="Castle">Castle</option>
-                          <option value="Volcano">Volcano</option>
-                          <option value="Small Arena">Small Arena</option>
-                        </select>
-                      </div>
+                      {/* <div className="space-y-2"> */}
+                      {/*   <Label htmlFor="map" className="pixel-label"> */}
+                      {/*     Map */}
+                      {/*   </Label> */}
+                      {/*   <select */}
+                      {/*     id="map" */}
+                      {/*     value={newRoom.map} */}
+                      {/*     onChange={(e) => */}
+                      {/*       setNewRoom({ ...newRoom, map: e.target.value }) */}
+                      {/*     } */}
+                      {/*     className="w-full pixel-input" */}
+                      {/*   > */}
+                      {/*     <option value="Classic">Classic</option> */}
+                      {/*     <option value="Castle">Castle</option> */}
+                      {/*     <option value="Volcano">Volcano</option> */}
+                      {/*     <option value="Small Arena">Small Arena</option> */}
+                      {/*   </select> */}
+                      {/* </div> */}
 
                       <div className="flex space-x-4 pt-4">
                         <Button
@@ -604,7 +590,7 @@ export default function PlaygroundPage() {
                                           ? "bg-gray-500"
                                           : "bg-[#3b82e8] hover:bg-[#2f6ac5]"
                                       }`}
-                                      onClick={() => handleJoinRoom(room.id)}
+                                      onClick={() => handleJoinRoom(room)}
                                     >
                                       {room.status === "in-progress" ? (
                                         <Clock className="h-4 w-4 mr-1" />
@@ -616,15 +602,6 @@ export default function PlaygroundPage() {
                                         : "Join"}
                                     </Button>
                                   </div>
-                                </div>
-
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  <span className="text-xs bg-[#1a2e4a] text-[#ffcc00] px-2 py-1 pixel-tag">
-                                    {room.mode}
-                                  </span>
-                                  <span className="text-xs bg-[#1a2e4a] text-[#ffcc00] px-2 py-1 pixel-tag">
-                                    {room.map}
-                                  </span>
                                 </div>
                               </div>
                             ))}
