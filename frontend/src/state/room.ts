@@ -1,6 +1,4 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import { Player } from "./player";
 
 export type PlayerInRoom = {
   username: string;
