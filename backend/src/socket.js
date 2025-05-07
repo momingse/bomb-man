@@ -650,6 +650,17 @@ const canMoveTo = (player, testX, testY, username, gameState, HALF = 0.47) => {
     (p) => p.username === username,
   );
 
+  if (
+    gameState.players.some(
+      (p) =>
+        p.alive &&
+        Math.abs(p.x - testX) < 1 &&
+        Math.abs(p.y - testY) < 1 &&
+        p.username !== username,
+    )
+  )
+    return false;
+
   return [
     [testX - HALF, testY - HALF],
     [testX - HALF, testY + HALF],
@@ -673,18 +684,6 @@ const canMoveTo = (player, testX, testY, username, gameState, HALF = 0.47) => {
         bombAtPosition.passThroughPlayers.includes(playerIndex)
       );
     }
-
-    // Check for other players
-    if (
-      gameState.players.some(
-        (p) =>
-          p.alive &&
-          Math.round(p.x) === tx &&
-          Math.round(p.y) === ty &&
-          p.username !== username,
-      )
-    )
-      return false;
 
     return true;
   });
