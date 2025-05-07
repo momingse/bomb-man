@@ -4,6 +4,7 @@ import AuthPage from "./components/auth/AuthPage";
 import PlaygroundPage from "./components/playground/PlaygroundPage";
 import { RequireAuth } from "./components/RequireAuth";
 import RoomPage from "./components/room/RoomPage";
+import GamePage from "./components/game/GamePage";
 
 function App() {
   return (
@@ -23,6 +24,14 @@ function App() {
           element={
             <RequireAuth>
               <RoomPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/game"
+          element={
+            <RequireAuth>
+              <GamePage />
             </RequireAuth>
           }
         />

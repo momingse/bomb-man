@@ -325,3 +325,73 @@
   font-size: 14px;
 }
 
+/* Improved scrolling for leaderboard */
+.leaderboard-container {
+  scrollbar-width: thin;
+  scrollbar-color: #1a2e4a #2a4a7f;
+}
+
+.leaderboard-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.leaderboard-container::-webkit-scrollbar-track {
+  background: #2a4a7f;
+}
+
+.leaderboard-container::-webkit-scrollbar-thumb {
+  background-color: #1a2e4a;
+  border: 1px solid #2a4a7f;
+}
+
+/* Ensure game container maintains height */
+@media (min-width: 1024px) {
+  .lg\:col-span-3 {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Make sure the power-ups section stretches with available space */
+.content-start {
+  align-content: start;
+}
+
+/* Ensure consistent heights between sidebars */
+@media (min-width: 1024px) {
+  .min-h-\[200px\] {
+    min-height: 200px;
+  }
+}
+
+/* Add these styles for the ability stats display */
+.ability-stat {
+  background-color: #1a2e4a;
+  padding: 4px 6px;
+  border: 1px solid rgba(26, 46, 74, 0.8);
+  image-rendering: pixelated;
+}
+
+.ability-value {
+  letter-spacing: 1px;
+  font-size: 10px;
+}
+
+/* Add pulsing animation for active abilities */
+@keyframes pulse-ability {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+
+.text-\[\#50c878\].font-bold {
+  animation: pulse-ability 1s infinite;
+}
+
+

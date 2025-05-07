@@ -4,6 +4,8 @@ const rooms = {};
 
 const onlinePlayers = {};
 
+const games = {};
+
 export const socketHandler = (io) => {
   logger.info("Socket handler started");
 
@@ -69,7 +71,9 @@ export const socketHandler = (io) => {
           (player) => player.username === onlinePlayers[socket.id].username,
         )
       ) {
-        logger.info(`User ${onlinePlayers[socket.id].username} already in room`);
+        logger.info(
+          `User ${onlinePlayers[socket.id].username} already in room`,
+        );
         return;
       }
 
@@ -94,7 +98,7 @@ export const socketHandler = (io) => {
       });
 
       io.emit("rooms", Object.values(rooms));
-    })
+    });
 
     socket.on("leaveRoom", () => {
       logger.info(`User ${onlinePlayers[socket.id].username} left room`);
@@ -142,7 +146,7 @@ export const socketHandler = (io) => {
       io.emit("rooms", Object.values(rooms));
     });
 
-    socket.on("toggleReady", ({roomId, isReady}) => {
+    socket.on("toggleReady", ({ roomId, isReady }) => {
       logger.info(`User ${onlinePlayers[socket.id].username} toggled ready`);
 
       // check if room exists
@@ -167,7 +171,50 @@ export const socketHandler = (io) => {
       ).isReady = isReady;
 
       io.emit("rooms", Object.values(rooms));
-    })
+    });
+
+    socket.on("hostStartGame", ({ roomId }) => {
+      logger.info(`User ${onlinePlayers[socket.id].username} started game`);
+
+      // check if room exists
+      if (!rooms[roomId]) {
+        logger.info(`Room ${roomId} does not exist`);
+        return;
+      }
+
+      const PLAYERS_COLORS = ["#e83b3b", "#3b82e8", "#50c878", "#ffcc00"];
+      games[roomId] = {
+        playerStats: rooms[roomId].players.map((player, index) => ({
+          username: player.username,
+          avatar: player.avatar,
+          score: 0,
+          kills: 0,
+          alive: true,
+          maxBombs: 1,
+          blastRange: 1,
+          speed: 1,
+          invincible: false,
+          color: PLAYERS_COLORS[index],
+        })),
+        startedTime: Date.now(),
+      };
+
+      rooms[roomId].started = true;
+      rooms[roomId].startedTime = Date.now();
+
+      io.emit("rooms", Object.values(rooms));
+
+      rooms[roomId].players.forEach((player) => {
+        const socketId = Object.keys(onlinePlayers).find(
+          (key) => onlinePlayers[key].username === player.username,
+        );
+
+        io.to(socketId).emit("startGame", {
+          roomId,
+          playerStats: games[roomId].playerStats,
+        });
+      });
+    });
 
     socket.on("disconnect", () => {
       logger.info(`Socket disconnected: ${socket.id}`);

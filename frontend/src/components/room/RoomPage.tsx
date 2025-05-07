@@ -29,73 +29,19 @@ import {
 import { useRoomStore } from "@/state/room";
 import { usePlayersStore } from "@/state/player";
 import { useSocket } from "../SocketProvier";
-
-// Sample map data
-const mapDetails = {
-  Classic: {
-    description:
-      "The original Bomberman arena with destructible blocks and power-ups.",
-    difficulty: "Medium",
-    size: "15x13",
-    features: ["Power-ups", "Destructible Blocks", "Safe Corners"],
-  },
-  Castle: {
-    description: "A medieval castle with narrow corridors and hidden passages.",
-    difficulty: "Hard",
-    size: "17x15",
-    features: ["Teleporters", "Traps", "Secret Rooms"],
-  },
-  Volcano: {
-    description: "A dangerous volcanic arena with lava pits and falling rocks.",
-    difficulty: "Expert",
-    size: "19x17",
-    features: ["Lava Pits", "Falling Rocks", "Heat Zones"],
-  },
-  "Small Arena": {
-    description: "A compact arena for fast-paced 1v1 duels.",
-    difficulty: "Easy",
-    size: "11x9",
-    features: ["Quick Matches", "Limited Power-ups", "No Hiding Spots"],
-  },
-  "Training Ground": {
-    description: "Perfect for beginners to learn the basics of Bomberman.",
-    difficulty: "Beginner",
-    size: "13x11",
-    features: ["Tutorial Tips", "Extra Lives", "Practice Zones"],
-  },
-  "Ice Cave": {
-    description:
-      "A slippery ice cave where players slide after movement stops.",
-    difficulty: "Hard",
-    size: "15x15",
-    features: ["Slippery Floor", "Ice Blocks", "Frozen Power-ups"],
-  },
-  Desert: {
-    description:
-      "A hot desert with sandstorms that temporarily block visibility.",
-    difficulty: "Medium",
-    size: "17x13",
-    features: ["Sandstorms", "Quicksand", "Mirages"],
-  },
-  "Space Station": {
-    description: "A futuristic space station with zero-gravity zones.",
-    difficulty: "Expert",
-    size: "19x19",
-    features: ["Zero-G Zones", "Airlocks", "Laser Barriers"],
-  },
-};
+import { useGameState } from "@/state/gameState";
 
 export default function RoomPage() {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("id");
 
-  const [countdown, setCountdown] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("players");
+
+  const { setStartedTime, setPlayerStats } = useGameState();
 
   const { player } = usePlayersStore();
   const { currentRoom } = useRoomStore();
   const { maxPlayers = 0, players = [], name = "" } = currentRoom || {};
-  console.log(currentRoom)
 
   const navigate = useNavigate();
 
@@ -129,7 +75,11 @@ export default function RoomPage() {
   // Handle start game
   const startGame = () => {
     if (!canStart) return;
-    setCountdown(5);
+
+    if (!socket || !isConnected) return;
+    socket.emit("hostStartGame", {
+      roomId: currentRoom?.id,
+    });
   };
 
   // Handle leave room
@@ -139,27 +89,16 @@ export default function RoomPage() {
     navigate("/playground");
   };
 
-  // Countdown effect
-  useEffect(() => {
-    if (countdown === null) return;
-
-    if (countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else {
-      // Game would start here in a real implementation
-      alert("Game starting!");
-      // In a real app, you would redirect to the game page or start the game
-    }
-  }, [countdown]);
-
   // Simulate other players changing ready status occasionally
   useEffect(() => {
     if (!socket || !isConnected) return;
-    socket.on("readyUpdated", () => {});
-  }, []);
+
+    socket.on("startGame", ({ playerStats, startedTime }) => {
+      setStartedTime(startedTime);
+      setPlayerStats(playerStats);
+      navigate("/game?id=" + currentRoom?.id);
+    });
+  }, [socket, isConnected]);
 
   return (
     <div className="min-h-screen bg-[#1a2e4a] p-4">
@@ -315,22 +254,6 @@ export default function RoomPage() {
           <div className="lg:col-span-2">
             <div className="pixel-container bg-[#2a4a7f] p-1">
               <div className="pixel-inner bg-[#4a6ea5] p-4">
-                {countdown !== null && (
-                  <div className="mb-4 pixel-countdown">
-                    <div className="text-center">
-                      <h3 className="text-2xl text-white font-bold pixel-title">
-                        GAME STARTING IN
-                      </h3>
-                      <div className="text-6xl text-[#ffcc00] font-bold mt-2 countdown-number">
-                        {countdown}
-                      </div>
-                      <p className="text-white pixel-text mt-2">
-                        Get ready to play!
-                      </p>
-                    </div>
-                  </div>
-                )}
-
                 <Tabs
                   defaultValue="players"
                   className="w-full"

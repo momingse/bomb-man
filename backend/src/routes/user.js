@@ -13,7 +13,7 @@ router.get("/leaderboard", async (req, res) => {
     const numberOfPlayers = await User.count();
 
     const users = await User.findAll({
-      order: [["rank", "DESC"]],
+      order: [["rank", "ASC"]],
       limit: 10,
     });
 
