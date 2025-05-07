@@ -1,4 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { useGameState } from "@/state/gameState";
+import { usePlayersStore } from "@/state/player";
+import { useRoomStore } from "@/state/room";
 import {
   ArrowRight,
   Bomb,
@@ -7,32 +10,27 @@ import {
   Heart,
   Settings,
   Shield,
-  Trophy,
   X,
-  Zap,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { useSocket } from "../SocketProvier";
 import GameCanvas from "./GameCanvas";
 import GameControls from "./GameControls";
 import GameLeaderboard from "./GameLeaderboard";
 import GamePowerups from "./GamePowerUps";
-import { useGameState } from "@/state/gameState";
-import { usePlayersStore } from "@/state/player";
-import { useRoomStore } from "@/state/room";
-import { useSocket } from "../SocketProvier";
 
 export default function GamePage() {
   const [gameStarted, setGameStarted] = useState(false);
-  const [gameOver, setGameOver] = useState(false);
+  // const [gameOver, setGameOver] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(3);
   const [gameTime, setGameTime] = useState(180); // 3 minutes in seconds
-  const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const gameTimeRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { players, startedTime } = useGameState();
+  const { players, startedTime, ended, setGameState, setEnded } =
+    useGameState();
   const { player: currentPlayer } = usePlayersStore();
   const { currentRoom } = useRoomStore();
 
@@ -40,17 +38,21 @@ export default function GamePage() {
     (_player) => _player.username === currentPlayer?.username,
   );
 
+  const winner = players
+    .filter((player) => player.alive)
+    .sort((a, b) => b.score - a.score)[0];
+
   const navigate = useNavigate();
 
   const { socket, isConnected } = useSocket();
 
   // Game settings
-  const [gameSettings, setGameSettings] = useState({
-    mapName: "Classic Arena",
-    gameMode: "Battle Royale",
-    timeLimit: 180, // 3 minutes
-    powerUps: true,
-  });
+  // const [gameSettings, setGameSettings] = useState({
+  //   mapName: "Classic Arena",
+  //   gameMode: "Battle Royale",
+  //   timeLimit: 180, // 3 minutes
+  //   powerUps: true,
+  // });
 
   // Handle countdown
   useEffect(() => {
@@ -73,14 +75,14 @@ export default function GamePage() {
 
   // Game timer
   useEffect(() => {
-    if (!gameStarted || gameOver || isPaused) return;
+    if (!gameStarted || !ended) return;
 
     gameTimeRef.current = setInterval(() => {
       setGameTime((prevTime) => {
         if (prevTime <= 1) {
           // Game over when time runs out
           clearInterval(gameTimeRef.current as NodeJS.Timeout);
-          setGameOver(true);
+          setEnded(true);
           return 0;
         }
         return prevTime - 1;
@@ -90,7 +92,7 @@ export default function GamePage() {
     return () => {
       if (gameTimeRef.current) clearInterval(gameTimeRef.current);
     };
-  }, [gameStarted, gameOver, isPaused]);
+  }, [gameStarted, ended]);
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -322,7 +324,7 @@ export default function GamePage() {
           <div className="lg:col-span-6 order-1 lg:order-2">
             <div className="pixel-container bg-[#2a4a7f] p-1">
               <div className="pixel-inner bg-[#4a6ea5] p-4">
-                {!gameStarted && !gameOver ? (
+                {!gameStarted && !ended ? (
                   <div className="text-center py-8">
                     {countdown !== null && (
                       <div className="pixel-countdown">
@@ -338,7 +340,7 @@ export default function GamePage() {
                       </div>
                     )}
                   </div>
-                ) : gameOver ? (
+                ) : ended ? (
                   <div className="text-center py-8 pixel-game-over">
                     <h2 className="text-3xl text-white font-bold pixel-title mb-4">
                       GAME OVER
@@ -350,29 +352,23 @@ export default function GamePage() {
                         <p className="text-[#ffcc00] pixel-text mb-2">
                           Winner:
                         </p>
-                        {players
-                          .filter((p) => p.alive)
-                          .map((winner) => (
-                            <div
-                              key={winner.username}
-                              className="flex items-center justify-center"
-                            >
-                              <div
-                                className="w-12 h-12 flex items-center justify-center mr-3"
-                                style={{
-                                  backgroundColor: winner.color,
-                                  border: "2px solid #1a2e4a",
-                                }}
-                              >
-                                <span className="text-3xl">
-                                  {winner.avatar}
-                                </span>
-                              </div>
-                              <div className="text-white font-bold text-xl pixel-text">
-                                {winner.username}
-                              </div>
-                            </div>
-                          ))}
+                        <div
+                          key={winner.username}
+                          className="flex items-center justify-center"
+                        >
+                          <div
+                            className="w-12 h-12 flex items-center justify-center mr-3"
+                            style={{
+                              backgroundColor: winner.color,
+                              border: "2px solid #1a2e4a",
+                            }}
+                          >
+                            <span className="text-3xl">{winner.avatar}</span>
+                          </div>
+                          <div className="text-white font-bold text-xl pixel-text">
+                            {winner.username}
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <p className="text-[#ffcc00] pixel-text mb-6">
@@ -391,15 +387,6 @@ export default function GamePage() {
                   </div>
                 ) : (
                   <div className="relative">
-                    {isPaused && (
-                      <div className="absolute inset-0 bg-[rgba(26,46,74,0.8)] flex items-center justify-center z-10">
-                        <div className="text-center">
-                          <h3 className="text-2xl text-white font-bold pixel-title mb-2">
-                            GAME PAUSED
-                          </h3>
-                        </div>
-                      </div>
-                    )}
                     <GameCanvas />
                   </div>
                 )}

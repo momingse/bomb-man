@@ -708,14 +708,32 @@ const updateGameState = (roomId, io) => {
       winner.score += 500; // Winner bonus
     }
 
-    // Emit game over event
-    io.to(roomId).emit("gameOver", {
-      winner: winner ? winner.username : null,
-      playerStats: gameState.players,
-    });
-
     // Stop game loop
     stopGameLoop(roomId);
+    const endGameState = gameStates[roomId];
+    const endGamePayload = {
+      players: endGameState.players.map((p) => ({
+        username: p.username,
+        avatar: p.avatar,
+        color: p.color,
+        x: p.x,
+        y: p.y,
+        alive: p.alive,
+        score: p.score,
+        kills: p.kills,
+        deaths: p.deaths,
+        bombsPlaced: p.bombsPlaced,
+        maxBombs: p.maxBombs,
+        blastRange: p.blastRange,
+        speed: p.speed,
+        invincible: p.invincible,
+      })),
+      bombs: endGameState.bombs,
+      explosions: endGameState.explosions,
+      powerUps: endGameState.powerUps,
+      map: endGameState.map,
+      ended: true,
+    };
     delete gameStates[roomId];
 
     // Update room status
@@ -723,6 +741,17 @@ const updateGameState = (roomId, io) => {
       rooms[roomId].started = false;
       io.emit("rooms", Object.values(rooms));
     }
+
+    const playerSocketIds = rooms[roomId]?.players.map((player) => {
+      return Object.keys(onlinePlayers).find(
+        (socketId) => onlinePlayers[socketId].username === player.username,
+      );
+    });
+    playerSocketIds.forEach((socketId) => {
+      io.to(socketId).emit("gameStateUpdate", endGamePayload);
+    });
+
+    logger.info(`Game over for room ${roomId}`);
 
     return;
   }
