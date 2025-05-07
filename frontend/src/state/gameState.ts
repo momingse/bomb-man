@@ -32,7 +32,7 @@ type Explosion = {
 type PowerUp = {
   x: number;
   y: number;
-  type: 'speed' | 'range' | 'bombs' | 'kick';
+  type: 'speed' | 'range' | 'bombs' | 'inv';
   collected: boolean;
 };
 
@@ -60,5 +60,5 @@ export const useGameState = create<State & Actions>()((set) => ({
   lastUpdateTime: 0,
   ended: false,
   startedTime: 0,
-  setGameState: (gameState) => set(gameState),
+  setGameState: (gameState) => set((state) => ({ ...state, ...gameState })),
 }));

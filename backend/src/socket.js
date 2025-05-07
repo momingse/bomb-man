@@ -173,6 +173,7 @@ export const socketHandler = (io) => {
       }
 
       const PLAYERS_COLORS = ["#e83b3b", "#3b82e8", "#50c878", "#ffcc00"];
+      const map = generateGameMap();
       gameStates[roomId] = {
         players: room.players.map((p, i) => ({
           username: p.username,
@@ -189,10 +190,10 @@ export const socketHandler = (io) => {
           y: [1, 1, 11, 11][i % 4],
           activeBombs: [], // Track bombs placed by this player
         })),
-        map: generateGameMap(),
+        map,
         bombs: [],
         explosions: [],
-        powerUps: generateInitialPowerUps(),
+        powerUps: generateInitialPowerUps(map),
         lastUpdateTime: Date.now(),
         startedTime: Date.now(),
         ended: false,
@@ -444,52 +445,56 @@ const generateGameMap = () => {
   startPositions.forEach(([x, y]) => {
     map[y][x] = 0; // Clear the starting position
     // Also clear adjacent cells for movement
-    if (x + 1 < GRID_WIDTH - 1) map[y][x + 1] = 0;
-    if (y + 1 < GRID_HEIGHT - 1) map[y + 1][x] = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (
+          x + dx >= 1 &&
+          x + dx < GRID_WIDTH - 1 &&
+          y + dy >= 1 &&
+          y + dy < GRID_HEIGHT - 1
+        ) {
+          map[y + dy][x + dx] = 0;
+        }
+      }
+    }
   });
 
   return map;
 };
 
 // Generate initial power-ups
-const generateInitialPowerUps = () => {
+const generateInitialPowerUps = (map) => {
   const GRID_WIDTH = 15;
   const GRID_HEIGHT = 13;
   const powerUps = [];
-  const powerUpTypes = ["speed", "range", "bombs", "kick"];
+  const powerUpTypes = ["speed", "range", "bombs", "inv"];
 
-  // Add 5 random power-ups
-  for (let i = 0; i < 5; i++) {
-    let x, y;
-    let validPosition = false;
-
-    // Find a valid position (not on walls or start positions)
-    while (!validPosition) {
-      x = Math.floor(Math.random() * (GRID_WIDTH - 2)) + 1;
-      y = Math.floor(Math.random() * (GRID_HEIGHT - 2)) + 1;
-
-      // Check if position is empty
-      const startPositions = [
-        [1, 1],
-        [GRID_WIDTH - 2, 1],
-        [1, GRID_HEIGHT - 2],
-        [GRID_WIDTH - 2, GRID_HEIGHT - 2],
-      ];
-      const isStartPosition = startPositions.some(
-        (pos) => pos[0] === x && pos[1] === y,
-      );
-
-      if (!isStartPosition) {
-        validPosition = true;
-      }
+  const possiblePositions = [];
+  for (let x = 1; x < GRID_WIDTH - 1; x++) {
+    for (let y = 1; y < GRID_HEIGHT - 1; y++) {
+      possiblePositions.push([x, y]);
     }
+  }
 
-    powerUps.push({
-      x,
-      y,
-      type: powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)],
-      collected: false,
-    });
+  while (powerUps.length < 3) {
+    const randomIndex = Math.floor(Math.random() * possiblePositions.length);
+    const [x, y] = possiblePositions.splice(randomIndex, 1)[0];
+
+    // Check if position is empty
+    const GRID_WIDTH = 15;
+    const GRID_HEIGHT = 13;
+    const startPositions = [
+      [1, 1], // Top-left
+      [GRID_WIDTH - 2, 1], // Top-right
+      [1, GRID_HEIGHT - 2], // Bottom-left
+      [GRID_WIDTH - 2, GRID_HEIGHT - 2], // Bottom-right
+    ];
+
+    if (map[y][x] === 0 && !startPositions.includes([x, y])) {
+      const type =
+        powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+      powerUps.push({ x, y, type });
+    }
   }
 
   return powerUps;
@@ -628,12 +633,45 @@ const updateGameState = (roomId, io) => {
                 Math.round(px) === bomb.x && Math.round(py) === bomb.y,
             )
           ) {
-            console.log("Removed pass through for player:", username);
             bomb.passThroughPlayers.splice(
               bomb.passThroughPlayers.indexOf(playerIndex),
               1,
             );
           }
+        });
+
+        // Get PowerUps
+        gameState.powerUps.forEach((powerUp, index) => {
+          collidedPosition.forEach(([px, py]) => {
+            // if not collided or collected then return
+            if (
+              Math.round(px) !== powerUp.x ||
+              Math.round(py) !== powerUp.y ||
+              powerUp.collected
+            )
+              return;
+
+            gameState.powerUp[index].collected = true;
+
+            // Apply power-up effect
+            switch (powerUp.type) {
+              case "speed":
+                player.speed = Math.min(player.speed + 0.2, 2); // Max speed cap
+                break;
+              case "range":
+                player.blastRange = Math.min(player.blastRange + 1, 6); // Max range cap
+                break;
+              case "bombs":
+                player.maxBombs = Math.min(player.maxBombs + 1, 5); // Max bombs cap
+                break;
+              case "kick":
+                player.canKickBombs = true;
+                break;
+            }
+
+            // Update player stats
+            player.score = (player.score || 0) + 50;
+          });
         });
       }
     });
@@ -730,7 +768,7 @@ const createExplosion = (roomId, x, y, range, playerId) => {
 
         // 20% chance to spawn a power-up when a wall is destroyed
         if (Math.random() < 0.2) {
-          const powerUpTypes = ["speed", "range", "bombs", "kick"];
+          const powerUpTypes = ["speed", "range", "bombs", "inv"];
           gameState.powerUps.push({
             x: newX,
             y: newY,
@@ -807,7 +845,6 @@ const broadcastGameStateUpdate = (roomId, io) => {
       score: p.score,
       kills: p.kills,
       deaths: p.deaths,
-      powerupsCollected: p.powerupsCollected,
       bombsPlaced: p.bombsPlaced,
       maxBombs: p.maxBombs,
       blastRange: p.blastRange,
@@ -817,7 +854,7 @@ const broadcastGameStateUpdate = (roomId, io) => {
     bombs: gameState.bombs,
     explosions: gameState.explosions,
     powerUps: gameState.powerUps.filter((p) => !p.collected),
-    mapUpdates: [], // Only send map changes for efficiency
+    map: gameState.map,
   };
 
   // Send to all players in the room

@@ -1,8 +1,8 @@
 import { useGameState } from "@/state/gameState";
 import { usePlayersStore } from "@/state/player";
-import { useEffect, useRef, useState } from "react";
-import { useSocket } from "../SocketProvier";
 import { useRoomStore } from "@/state/room";
+import { useEffect, useRef } from "react";
+import { useSocket } from "../SocketProvier";
 
 const TILE_SIZE = 40;
 const GRID_WIDTH = 15;
@@ -89,9 +89,15 @@ export default function GameCanvas() {
 
   useEffect(() => {
     if (!socket || !isConnected) return;
-    socket.on("gameStateUpdate", (gameState) => {
+
+    const handleGameUpdate = (gameState: any) => {
       setGameState(gameState);
-    });
+    };
+    socket.on("gameStateUpdate", handleGameUpdate);
+
+    return () => {
+      socket.off("gameStateUpdate", handleGameUpdate);
+    };
   }, [socket, isConnected]);
 
   // Draw the game
@@ -171,7 +177,7 @@ export default function GameCanvas() {
         case "bombs":
           color = "#3b82e8"; // Blue
           break;
-        case "kick":
+        case "inv":
           color = "#50c878"; // Green
           break;
       }
@@ -204,7 +210,7 @@ export default function GameCanvas() {
         case "bombs":
           icon = "B";
           break;
-        case "kick":
+        case "inv":
           icon = "K";
           break;
       }
