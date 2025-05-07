@@ -588,7 +588,7 @@ const updateGameState = (roomId, io) => {
       if (playerIndex !== -1 && gameState.players[playerIndex].alive) {
         const player = gameState.players[playerIndex];
 
-        const speed = player.speed * 3 * deltaTime; // same as before
+        const speed = ((player.speed - 1) * 0.2 + 1) * 3 * deltaTime; // same as before
 
         // build per‐axis deltas
         const deltaX = (input.left ? -speed : 0) + (input.right ? speed : 0);
@@ -651,21 +651,24 @@ const updateGameState = (roomId, io) => {
             )
               return;
 
-            gameState.powerUp[index].collected = true;
+            powerUp.collected = true;
 
             // Apply power-up effect
             switch (powerUp.type) {
               case "speed":
-                player.speed = Math.min(player.speed + 0.2, 2); // Max speed cap
+                player.speed = Math.min(player.speed + 1, 5); // Max speed cap
                 break;
               case "range":
-                player.blastRange = Math.min(player.blastRange + 1, 6); // Max range cap
+                player.blastRange = Math.min(player.blastRange + 1, 5); // Max range cap
                 break;
               case "bombs":
                 player.maxBombs = Math.min(player.maxBombs + 1, 5); // Max bombs cap
                 break;
-              case "kick":
-                player.canKickBombs = true;
+              case "inv":
+                player.invincible = true;
+                setTimeout(() => {
+                  player.invincible = false;
+                }, 5000);
                 break;
             }
 

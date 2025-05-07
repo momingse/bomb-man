@@ -295,7 +295,7 @@ export default function GamePage() {
                       <div className="flex items-center">
                         <Shield className="h-3 w-3 text-[#50c878] mr-1" />
                         <span className="text-white text-xs pixel-text">
-                          Shield:
+                          Invincible:
                         </span>
                       </div>
                       <span

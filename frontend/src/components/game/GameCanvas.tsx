@@ -211,7 +211,7 @@ export default function GameCanvas() {
           icon = "B";
           break;
         case "inv":
-          icon = "K";
+          icon = "I";
           break;
       }
 
