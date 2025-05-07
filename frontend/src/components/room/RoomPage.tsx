@@ -37,7 +37,7 @@ export default function RoomPage() {
 
   const [activeTab, setActiveTab] = useState("players");
 
-  const { setStartedTime, setPlayerStats } = useGameState();
+  const { setGameState } = useGameState();
 
   const { player } = usePlayersStore();
   const { currentRoom } = useRoomStore();
@@ -93,9 +93,8 @@ export default function RoomPage() {
   useEffect(() => {
     if (!socket || !isConnected) return;
 
-    socket.on("startGame", ({ playerStats, startedTime }) => {
-      setStartedTime(startedTime);
-      setPlayerStats(playerStats);
+    socket.on("startGame", ({id, gameState}) => {
+      setGameState(gameState)
       navigate("/game?id=" + currentRoom?.id);
     });
   }, [socket, isConnected]);

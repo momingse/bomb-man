@@ -20,104 +20,29 @@ import GamePowerups from "./GamePowerUps";
 import { useGameState } from "@/state/gameState";
 import { usePlayersStore } from "@/state/player";
 import { useRoomStore } from "@/state/room";
-
-// Sample player data
-const initialPlayers = [
-  {
-    id: 1,
-    name: "BombKing",
-    avatar: "👑",
-    color: "#e83b3b",
-    score: 0,
-    kills: 0,
-    deaths: 0,
-    bombsPlaced: 0,
-    powerupsCollected: 0,
-    isAlive: true,
-    // Add these new ability properties
-    maxBombs: 1,
-    speed: 1,
-    blastRange: 2,
-    isInvincible: false,
-    invincibleUntil: 0,
-  },
-  {
-    id: 2,
-    name: "ExplosionMaster",
-    avatar: "💣",
-    color: "#3b82e8",
-    score: 0,
-    kills: 0,
-    deaths: 0,
-    bombsPlaced: 0,
-    powerupsCollected: 0,
-    isAlive: true,
-    // Add these new ability properties
-    maxBombs: 1,
-    speed: 1,
-    blastRange: 2,
-    isInvincible: false,
-    invincibleUntil: 0,
-  },
-  {
-    id: 3,
-    name: "BlastZone",
-    avatar: "🔥",
-    color: "#50c878",
-    score: 0,
-    kills: 0,
-    deaths: 0,
-    bombsPlaced: 0,
-    powerupsCollected: 0,
-    isAlive: true,
-    // Add these new ability properties
-    maxBombs: 1,
-    speed: 1,
-    blastRange: 2,
-    isInvincible: false,
-    invincibleUntil: 0,
-  },
-  {
-    id: 4,
-    name: "BombHero",
-    avatar: "🦸",
-    color: "#ffcc00",
-    score: 0,
-    kills: 0,
-    deaths: 0,
-    bombsPlaced: 0,
-    powerupsCollected: 0,
-    isAlive: true,
-    // Add these new ability properties
-    maxBombs: 1,
-    speed: 1,
-    blastRange: 2,
-    isInvincible: false,
-    invincibleUntil: 0,
-  },
-];
+import { useSocket } from "../SocketProvier";
 
 export default function GamePage() {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(3);
-  const [currentPlayerId, setCurrentPlayerId] = useState(4); // BombHero is the current player
   const [gameTime, setGameTime] = useState(180); // 3 minutes in seconds
   const [isPaused, setIsPaused] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const gameTimeRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { playerStats, startedTime } = useGameState();
-
-  const { player } = usePlayersStore();
+  const { players, startedTime } = useGameState();
+  const { player: currentPlayer } = usePlayersStore();
   const { currentRoom } = useRoomStore();
 
-  const currentPlayerState = playerStats.find(
-    (_player) => _player.username === player?.username,
+  const currentPlayerState = players.find(
+    (_player) => _player.username === currentPlayer?.username,
   );
 
   const navigate = useNavigate();
+
+  const { socket, isConnected } = useSocket();
 
   // Game settings
   const [gameSettings, setGameSettings] = useState({
@@ -130,6 +55,10 @@ export default function GamePage() {
   // Handle countdown
   useEffect(() => {
     if (countdown === null) return;
+
+    if (players.length < 2) {
+      navigate("/playground");
+    }
 
     if (countdown > 0) {
       const timer = setTimeout(() => {
@@ -174,6 +103,9 @@ export default function GamePage() {
   const exitGame = () => {
     if (gameLoopRef.current) clearInterval(gameLoopRef.current);
     if (gameTimeRef.current) clearInterval(gameTimeRef.current);
+    if (!socket || !isConnected) return;
+
+    socket.emit("leaveRoom", { roomId: currentRoom?.id });
     navigate("/playground");
   };
 
@@ -283,17 +215,17 @@ export default function GamePage() {
                       </div>
                       <div className="ability-value">
                         {Array.from({
-                          length: currentPlayerState?.maxBombs || 0,
-                        }).map((_, i) => (
-                          <span key={i} className="text-[#ffcc00]">
-                            ●
-                          </span>
-                        ))}
-                        {Array.from({
                           length: 5 - (currentPlayerState?.maxBombs || 0),
                         }).map((_, i) => (
                           <span key={i} className="text-[#2a4a7f]">
                             ○
+                          </span>
+                        ))}
+                        {Array.from({
+                          length: currentPlayerState?.maxBombs || 0,
+                        }).map((_, i) => (
+                          <span key={i} className="text-[#ffcc00]">
+                            ●
                           </span>
                         ))}
                       </div>
@@ -309,18 +241,19 @@ export default function GamePage() {
                         </span>
                       </div>
                       <div className="ability-value">
-                        {Array.from({
-                          length: currentPlayerState?.blastRange || 0,
-                        }).map((_, i) => (
-                          <span key={i} className="text-[#e83b3b]">
-                            ●
-                          </span>
-                        ))}
+                        {" "}
                         {Array.from({
                           length: 6 - (currentPlayerState?.blastRange || 0),
                         }).map((_, i) => (
                           <span key={i} className="text-[#2a4a7f]">
                             ○
+                          </span>
+                        ))}
+                        {Array.from({
+                          length: currentPlayerState?.blastRange || 0,
+                        }).map((_, i) => (
+                          <span key={i} className="text-[#e83b3b]">
+                            ●
                           </span>
                         ))}
                       </div>
@@ -337,20 +270,20 @@ export default function GamePage() {
                       </div>
                       <div className="ability-value">
                         {Array.from({
+                          length:
+                            10 - Math.floor(currentPlayerState?.speed || 0 * 5),
+                        }).map((_, i) => (
+                          <span key={i} className="text-[#2a4a7f]">
+                            ○
+                          </span>
+                        ))}
+                        {Array.from({
                           length: Math.floor(
                             currentPlayerState?.speed || 0 * 5,
                           ),
                         }).map((_, i) => (
                           <span key={i} className="text-[#3b82e8]">
                             ●
-                          </span>
-                        ))}
-                        {Array.from({
-                          length:
-                            10 - Math.floor(currentPlayerState?.speed || 0 * 5),
-                        }).map((_, i) => (
-                          <span key={i} className="text-[#2a4a7f]">
-                            ○
                           </span>
                         ))}
                       </div>
@@ -382,7 +315,7 @@ export default function GamePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Left Sidebar - Leaderboard */}
           <div className="lg:col-span-3 order-3 lg:order-1">
-            <GameLeaderboard players={playerStats} />
+            <GameLeaderboard players={players} />
           </div>
 
           {/* Main Game Area */}
@@ -412,12 +345,12 @@ export default function GamePage() {
                     </h2>
 
                     {/* Winner display */}
-                    {playerStats.filter((p) => p.alive).length > 0 ? (
+                    {players.filter((p) => p.alive).length > 0 ? (
                       <div className="mb-6">
                         <p className="text-[#ffcc00] pixel-text mb-2">
                           Winner:
                         </p>
-                        {playerStats
+                        {players
                           .filter((p) => p.alive)
                           .map((winner) => (
                             <div
@@ -467,11 +400,7 @@ export default function GamePage() {
                         </div>
                       </div>
                     )}
-                    <GameCanvas
-                      players={playerStats}
-                      currentPlayerId={currentPlayerId}
-                      isPaused={isPaused}
-                    />
+                    <GameCanvas />
                   </div>
                 )}
               </div>
@@ -510,8 +439,8 @@ export default function GamePage() {
                 </span>
               </div>
               <div className="text-[#8aa8d0] text-xs pixel-text">
-                Players Alive: {playerStats.filter((p) => p.alive).length} /{" "}
-                {playerStats.length}
+                Players Alive: {players.filter((p) => p.alive).length} /{" "}
+                {players.length}
               </div>
             </div>
           </div>

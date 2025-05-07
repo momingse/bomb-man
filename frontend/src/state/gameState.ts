@@ -11,25 +11,54 @@ export type PlayerState = {
   speed: number;
   invincible: boolean;
   color: string;
+  x: number;
+  y: number;
+};
+
+type Bomb = {
+  x: number;
+  y: number;
+  playerId: number;
+  timer: number;
+  owner: string;
+};
+
+type Explosion = {
+  x: number;
+  y: number;
+  timer: number;
+};
+
+type PowerUp = {
+  x: number;
+  y: number;
+  type: 'speed' | 'range' | 'bombs' | 'kick';
+  collected: boolean;
 };
 
 type State = {
-  playerStats: PlayerState[];
+  players: PlayerState[];
+  map: number[][];
+  bombs: Bomb[];
+  explosions: Explosion[];
+  powerUps: PowerUp[];
+  lastUpdateTime: number;
+  ended: boolean;
   startedTime: number;
-  isEnded: boolean;
 };
 
 type Actions = {
-  setPlayerStats: (playerStats: PlayerState[]) => void;
-  setStartedTime: (startedTime: number) => void;
-  setIsEnded: (isEnded: boolean) => void;
+  setGameState: (gameState: State) => void;
 };
 
 export const useGameState = create<State & Actions>()((set) => ({
-  playerStats: [],
+  players: [],
+  map: [],
+  bombs: [],
+  explosions: [],
+  powerUps: [],
+  lastUpdateTime: 0,
+  ended: false,
   startedTime: 0,
-  isEnded: false,
-  setPlayerStats: (playerStats) => set({ playerStats }),
-  setStartedTime: (startedTime) => set({ startedTime }),
-  setIsEnded: (isEnded) => set({ isEnded }),
+  setGameState: (gameState) => set(gameState),
 }));
