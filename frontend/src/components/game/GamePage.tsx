@@ -81,7 +81,7 @@ export default function GamePage() {
 
   // Game timer
   useEffect(() => {
-    if (!gameStarted) return;
+    if (!gameStarted || ended) return;
 
     gameTimeRef.current = setInterval(() => {
       setGameTime((prevTime) => {
@@ -307,9 +307,12 @@ export default function GamePage() {
                         </span>
                       </div>
                       <span
-                        className={`text-xs pixel-text ${currentPlayerState?.invincible ? "text-[#50c878] font-bold" : "text-[#8aa8d0]"}`}
+                        className={`text-xs pixel-text ${currentPlayerState?.invincible || currentPlayerState?.cheated ? "text-[#50c878] font-bold" : "text-[#8aa8d0]"}`}
                       >
-                        {currentPlayerState?.invincible ? "ACTIVE" : "INACTIVE"}
+                        {currentPlayerState?.invincible ||
+                        currentPlayerState?.cheated
+                          ? "ACTIVE"
+                          : "INACTIVE"}
                       </span>
                     </div>
                   </div>

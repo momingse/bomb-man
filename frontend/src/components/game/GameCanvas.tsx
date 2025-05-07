@@ -28,6 +28,7 @@ export default function GameCanvas() {
     down: false,
     left: false,
     right: false,
+    cheat: false,
   });
 
   useEffect(() => {
@@ -44,6 +45,16 @@ export default function GameCanvas() {
             y: Math.round(currentPlayerState.y),
           });
         }
+        e.preventDefault();
+        return;
+      }
+
+      if (e.code === "KeyC") {
+        inputRef.current.cheat = isDown;
+        socket.emit("cheatMode", {
+          roomId: currentRoom?.id,
+          input: inputRef.current,
+        });
         e.preventDefault();
         return;
       }
@@ -292,6 +303,25 @@ export default function GameCanvas() {
 
       const x = (player.x || 0) * TILE_SIZE;
       const y = (player.y || 0) * TILE_SIZE;
+
+      // If player is invincible or in cheat mode, draw a glowing aura
+      if (player.invincible || player.cheated) {
+        ctx.save();
+        ctx.strokeStyle = player.invincible
+          ? "rgba(80,200,120,0.8)"
+          : "rgba(200,80,200,0.8)";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(
+          x + TILE_SIZE / 2,
+          y + TILE_SIZE / 2,
+          TILE_SIZE / 2 + 4,
+          0,
+          Math.PI * 2,
+        );
+        ctx.stroke();
+        ctx.restore();
+      }
 
       // Player body fills the tile
       ctx.fillStyle = player.color;

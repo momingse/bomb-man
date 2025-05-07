@@ -190,6 +190,7 @@ export const socketHandler = (io) => {
           x: [1, 13, 1, 13][i % 4],
           y: [1, 1, 11, 11][i % 4],
           activeBombs: [], // Track bombs placed by this player
+          cheated: false,
         })),
         map,
         bombs: [],
@@ -271,6 +272,34 @@ export const socketHandler = (io) => {
         return;
       }
 
+      // check if there is player next to the bomb
+      const possiblePositions = [
+        [gridX - 1, gridY],
+        [gridX + 1, gridY],
+        [gridX, gridY - 1],
+        [gridX, gridY + 1],
+        [gridX - 1, gridY - 1],
+        [gridX - 1, gridY + 1],
+        [gridX + 1, gridY - 1],
+        [gridX + 1, gridY + 1],
+      ];
+
+      const possibleCollisionPlayerIndex = gameStates[roomId].players.reduce(
+        (acc, player, index) => {
+          if (
+            possiblePositions.some(
+              ([px, py]) =>
+                px === Math.round(player.x) && py === Math.round(player.y),
+            )
+          ) {
+            return [...acc, index];
+          }
+
+          return acc;
+        },
+        [],
+      );
+
       // Create the bomb object
       const newBomb = {
         x: gridX,
@@ -279,8 +308,9 @@ export const socketHandler = (io) => {
         timer: 3, // 3 second timer
         range: player.blastRange,
         // This player is initially allowed to walk over this bomb
-        passThroughPlayers: [playerIndex],
+        passThroughPlayers: [playerIndex, ...possibleCollisionPlayerIndex],
       };
+      console.log(newBomb);
 
       // Place the bomb
       gameStates[roomId].bombs.push(newBomb);
@@ -294,6 +324,21 @@ export const socketHandler = (io) => {
         (gameStates[roomId].players[playerIndex].bombsPlaced || 0) + 1;
 
       // Broadcast bomb placement to all players in the room
+      broadcastGameStateUpdate(roomId, io);
+    });
+
+    socket.on("cheatMode", ({ roomId, input }) => {
+      if (!gameStates[roomId]) return;
+
+      const username = onlinePlayers[socket.id].username;
+      const playerIndex = gameStates[roomId].players.findIndex(
+        (p) => p.username === username,
+      );
+
+      if (playerIndex === -1 || !gameStates[roomId].players[playerIndex].alive)
+        return;
+
+      gameStates[roomId].players[playerIndex].cheated = input.cheat;
       broadcastGameStateUpdate(roomId, io);
     });
 
@@ -923,7 +968,8 @@ const createExplosion = (roomId, x, y, range, playerId) => {
           player.alive &&
           Math.round(player.x) === newX &&
           Math.round(player.y) === newY &&
-          !player.invincible
+          !player.invincible &&
+          !player.cheated
         ) {
           // Player is hit by explosion
           player.alive = false;
@@ -977,6 +1023,7 @@ const broadcastGameStateUpdate = (roomId, io) => {
       blastRange: p.blastRange,
       speed: p.speed,
       invincible: p.invincible,
+      cheated: p.cheated,
     })),
     bombs: gameState.bombs,
     explosions: gameState.explosions,

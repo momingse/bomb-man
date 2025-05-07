@@ -13,6 +13,7 @@ export type PlayerState = {
   color: string;
   x: number;
   y: number;
+  cheated: boolean;
 };
 
 type Bomb = {
@@ -36,7 +37,7 @@ type PowerUp = {
   collected: boolean;
 };
 
-type State = {
+export type GameState = {
   players: PlayerState[];
   map: number[][];
   bombs: Bomb[];
@@ -48,11 +49,11 @@ type State = {
 };
 
 type Actions = {
-  setGameState: (gameState: State) => void;
+  setGameState: (gameState: GameState) => void;
   setEnded: (ended: boolean) => void;
 };
 
-export const useGameState = create<State & Actions>()((set) => ({
+export const useGameState = create<GameState & Actions>()((set) => ({
   players: [],
   map: [],
   bombs: [],
