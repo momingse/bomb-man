@@ -165,7 +165,7 @@ export default function GamePage() {
         {/* Game Dashboard - Top Bar */}
         <div className="pixel-container bg-[#2a4a7f] p-1 mb-4">
           <div className="pixel-inner bg-[#4a6ea5] p-3">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               {/* Player Info */}
               <div className="bg-[#2a4a7f] p-2 pixel-stats-box flex flex-col justify-center">
                 <div className="flex items-center">
@@ -251,7 +251,7 @@ export default function GamePage() {
                       <div className="ability-value">
                         {" "}
                         {Array.from({
-                          length: 6 - (currentPlayerState?.blastRange || 0),
+                          length: 5 - (currentPlayerState?.blastRange || 0),
                         }).map((_, i) => (
                           <span key={i} className="text-[#2a4a7f]">
                             ○
@@ -279,7 +279,7 @@ export default function GamePage() {
                       <div className="ability-value">
                         {Array.from({
                           length:
-                            10 - Math.floor(currentPlayerState?.speed || 0 * 5),
+                            5 - Math.floor(currentPlayerState?.speed || 0 * 5),
                         }).map((_, i) => (
                           <span key={i} className="text-[#2a4a7f]">
                             ○

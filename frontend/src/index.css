@@ -394,4 +394,12 @@
   animation: pulse-ability 1s infinite;
 }
 
+.pixel-powerup {
+  border: 2px solid #1a2e4a;
+  transition: all 0.2s;
+}
 
+.pixel-powerup:hover {
+  border-color: #ffcc00;
+  background-color: #1a2e4a;
+}

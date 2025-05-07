@@ -35,9 +35,19 @@ export default function GameControls() {
               <span className="text-[#ffcc00] pixel-text text-sm">
                 Place Bomb:
               </span>
-              <span className="bg-[#1a2e4a] p-1 text-white pixel-text text-sm min-w-[40px] text-center">
+              <span className="bg-[#1a2e4a] px-2 py-1 text-white pixel-text text-sm min-w-[40px] text-center">
                 Space
               </span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[#ffcc00] pixel-text text-sm">
+                  Cheat Mode:
+                </span>
+                <span className="bg-[#1a2e4a] px-2 py-1 text-white pixel-text text-sm min-w-[40px] text-center">
+                  C
+                </span>
+              </div>
             </div>
           </div>
         </div>
