@@ -1,4 +1,5 @@
 import { logger } from "./logger.js";
+import User from "./models/User.js";
 
 const rooms = {};
 const onlinePlayers = {};
@@ -199,7 +200,6 @@ export const socketHandler = (io) => {
         ended: false,
       };
 
-      io.emit("rooms", Object.values(rooms));
       room.players.forEach((p) => {
         const sid = Object.keys(onlinePlayers).find(
           (k) => onlinePlayers[k]?.username === p.username,
@@ -212,7 +212,7 @@ export const socketHandler = (io) => {
         }
       });
 
-      room.inProgress = true;
+      room.started = true;
       io.emit("rooms", Object.values(rooms));
       startGameLoop(roomId, io);
     });
@@ -352,6 +352,81 @@ export const socketHandler = (io) => {
         room.started = false;
         io.emit("rooms", Object.values(rooms));
       }
+    });
+
+    socket.on("overtime", ({ roomId }) => {
+      const gameState = gameStates[roomId];
+
+      const winner = gameState.players
+        .filter((p) => p.alive)
+        .sort((a, b) => b.score - a.score)[0];
+      if (winner) {
+        winner.score += 500;
+      }
+
+      stopGameLoop(roomId);
+      const endGameState = gameStates[roomId];
+      const endGamePayload = {
+        players: endGameState.players.map((p) => ({
+          username: p.username,
+          avatar: p.avatar,
+          color: p.color,
+          x: p.x,
+          y: p.y,
+          alive: p.alive,
+          score: p.score,
+          kills: p.kills,
+          deaths: p.deaths,
+          bombsPlaced: p.bombsPlaced,
+          maxBombs: p.maxBombs,
+          blastRange: p.blastRange,
+          speed: p.speed,
+          invincible: p.invincible,
+        })),
+        bombs: endGameState.bombs,
+        explosions: endGameState.explosions,
+        powerUps: endGameState.powerUps,
+        map: endGameState.map,
+        ended: true,
+      };
+      delete gameStates[roomId];
+
+      const playerSocketIds = rooms[roomId]?.players.map((player) => {
+        return Object.keys(onlinePlayers).find(
+          (socketId) => onlinePlayers[socketId].username === player.username,
+        );
+      });
+      playerSocketIds.forEach((socketId) => {
+        io.to(socketId).emit("gameStateUpdate", endGamePayload);
+      });
+
+      logger.info(`Game over for room ${roomId}`);
+
+      // Update room status
+      if (rooms[roomId]) {
+        delete rooms[roomId];
+        io.emit("rooms", Object.values(rooms));
+      }
+
+      // update player stats
+      Promise.all(
+        gameState.players.map(async (player) => {
+          const user = await User.findOne({ username: player.username });
+
+          if (!user) {
+            return;
+          }
+
+          await User.update(
+            {
+              // score: user.score + player.score,
+              gamesPlayed: user.gamesPlayed + 1,
+              wins: user.wins + (winner?.username === player.username),
+            },
+            { where: { username: player.username } },
+          );
+        }),
+      );
     });
 
     socket.on("disconnect", () => {
@@ -736,12 +811,6 @@ const updateGameState = (roomId, io) => {
     };
     delete gameStates[roomId];
 
-    // Update room status
-    if (rooms[roomId]) {
-      rooms[roomId].started = false;
-      io.emit("rooms", Object.values(rooms));
-    }
-
     const playerSocketIds = rooms[roomId]?.players.map((player) => {
       return Object.keys(onlinePlayers).find(
         (socketId) => onlinePlayers[socketId].username === player.username,
@@ -752,6 +821,32 @@ const updateGameState = (roomId, io) => {
     });
 
     logger.info(`Game over for room ${roomId}`);
+
+    // Update room status
+    if (rooms[roomId]) {
+      delete rooms[roomId];
+      io.emit("rooms", Object.values(rooms));
+    }
+
+    // update player stats
+    Promise.all(
+      gameState.players.map(async (player) => {
+        const user = await User.findOne({ username: player.username });
+
+        if (!user) {
+          return;
+        }
+
+        await User.update(
+          {
+            // score: user.score + player.score,
+            gamesPlayed: user.gamesPlayed + 1,
+            wins: user.wins + (winner?.username === player.username),
+          },
+          { where: { username: player.username } },
+        );
+      }),
+    );
 
     return;
   }

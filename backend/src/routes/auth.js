@@ -2,6 +2,8 @@ import express from "express";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import EMOJI from "../constants/emoji.js";
+import { logger } from "../logger.js";
+import { Op } from "sequelize";
 
 const router = express.Router();
 
@@ -24,7 +26,6 @@ router.post("/register", async (req, res) => {
     const user = await User.create({
       username,
       password: hashedPassword,
-      rank: numberOfUsers + 1,
       avatar,
     });
 
@@ -34,8 +35,8 @@ router.post("/register", async (req, res) => {
       username: user.username,
       wins: user.wins,
       gamesPlayed: user.gamesPlayed,
-      rank: user.rank,
       avatar: user.avatar,
+      rank: numberOfUsers + 1,
     };
     req.session.user = userData;
 
@@ -68,14 +69,23 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    const rank =
+      (await User.count({
+        where: {
+          wins: {
+            [Op.gt]: user.wins,
+          },
+        },
+      })) + 1;
+
     // Set session
     const userData = {
       id: user.id,
       username: user.username,
       wins: user.wins,
       gamesPlayed: user.gamesPlayed,
-      rank: user.rank,
       avatar: user.avatar,
+      rank,
     };
     req.session.user = userData;
 
@@ -101,8 +111,26 @@ router.post("/logout", (req, res) => {
 });
 
 // Get current user
-router.get("/me", (req, res) => {
+router.get("/me", async (req, res) => {
   if (req.session.user) {
+    // update req.session.user
+    const user = await User.findByPk(req.session.user.id);
+    const rank =
+      (await User.count({
+        where: {
+          wins: {
+            [Op.gt]: user.wins,
+          },
+        },
+      })) + 1;
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      wins: user.wins,
+      gamesPlayed: user.gamesPlayed,
+      avatar: user.avatar,
+      rank,
+    };
     return res.status(200).json({ user: req.session.user });
   }
   return res.status(401).json({ message: "Not authenticated" });

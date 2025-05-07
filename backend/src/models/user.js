@@ -21,11 +21,6 @@ const User = sequelize.define("User", {
     allowNull: false,
     defaultValue: 0,
   },
-  rank: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-  },
   avatar: {
     type: DataTypes.STRING,
     allowNull: false,

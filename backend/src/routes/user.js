@@ -13,22 +13,22 @@ router.get("/leaderboard", async (req, res) => {
     const numberOfPlayers = await User.count();
 
     const users = await User.findAll({
-      order: [["rank", "ASC"]],
+      order: [["wins", "DESC"]],
       limit: 10,
     });
 
-    const leaderboard = users.reduce((leaderboard, user) => {
+    const leaderboard = users.reduce((leaderboard, user, index) => {
       leaderboard.push({
         id: user.id,
         username: user.username,
         wins: user.wins,
         gamesPlayed: user.gamesPlayed,
-        rank: user.rank,
         avatar: user.avatar,
+        rank: index + 1,
         winRate: (user.wins / user.gamesPlayed) * 100 || 0,
-      })
+      });
 
-      return leaderboard
+      return leaderboard;
     }, []);
 
     return res.status(200).json({ leaderboard, numberOfPlayers });

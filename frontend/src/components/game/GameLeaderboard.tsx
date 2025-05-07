@@ -58,7 +58,7 @@ export default function GameLeaderboard({ players }: GameLeaderboardProps) {
                       {player.alive ? "Alive" : "Defeated"}
                     </span>
                     <span className="text-[#8aa8d0] pixel-text">
-                      K: {player.kills}
+                      K: {player.kills} 
                     </span>
                   </div>
                 </div>

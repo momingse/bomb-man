@@ -248,13 +248,6 @@ export default function PlaygroundPage() {
                     <span className="text-white pixel-text">{gamesPlayed}</span>
                   </div>
                 </div>
-
-                <div className="bg-[#2a4a7f] p-3 pixel-stats-box">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#ffcc00] pixel-text">Rank:</span>
-                    <span className="text-white pixel-text">#{rank}</span>
-                  </div>
-                </div>
               </div>
 
               <div className="mt-6 pt-4 border-t-2 border-dashed border-[#1a2e4a]">
@@ -591,7 +584,7 @@ export default function PlaygroundPage() {
                                     {player.wins}
                                   </td>
                                   <td className="p-2 text-right text-white pixel-text hidden md:table-cell">
-                                    {player.winRate}%
+                                    {player.winRate.toFixed(2)}%
                                   </td>
                                   {/* <td className="p-2 text-right text-white pixel-text hidden md:table-cell"> */}
                                   {/*   {player.level} */}

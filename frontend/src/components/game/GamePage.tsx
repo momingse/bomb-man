@@ -31,7 +31,7 @@ export default function GamePage() {
 
   const { players, startedTime, ended, setGameState, setEnded } =
     useGameState();
-  const { player: currentPlayer } = usePlayersStore();
+  const { player: currentPlayer, setPlayer } = usePlayersStore();
   const { currentRoom } = useRoomStore();
 
   const currentPlayerState = players.find(
@@ -46,13 +46,19 @@ export default function GamePage() {
 
   const { socket, isConnected } = useSocket();
 
-  // Game settings
-  // const [gameSettings, setGameSettings] = useState({
-  //   mapName: "Classic Arena",
-  //   gameMode: "Battle Royale",
-  //   timeLimit: 180, // 3 minutes
-  //   powerUps: true,
-  // });
+  useEffect(() => {
+    if (!ended || !currentPlayer) return;
+    clearInterval(gameTimeRef.current as NodeJS.Timeout);
+
+    // if player win the game
+    setPlayer({
+      ...currentPlayer,
+      wins:
+        currentPlayer.wins +
+        (winner.username === currentPlayer.username ? 1 : 0),
+      gamesPlayed: currentPlayer.gamesPlayed + 1,
+    });
+  }, [ended]);
 
   // Handle countdown
   useEffect(() => {
@@ -75,7 +81,7 @@ export default function GamePage() {
 
   // Game timer
   useEffect(() => {
-    if (!gameStarted || !ended) return;
+    if (!gameStarted) return;
 
     gameTimeRef.current = setInterval(() => {
       setGameTime((prevTime) => {
