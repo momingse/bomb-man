@@ -5,12 +5,14 @@ import PlaygroundPage from "./components/playground/PlaygroundPage";
 import { RequireAuth } from "./components/RequireAuth";
 import RoomPage from "./components/room/RoomPage";
 import GamePage from "./components/game/GamePage";
+import InfoPage from "./components/info/InfoPage";
 
 function App() {
   return (
     <>
       <Routes>
         <Route index element={<AuthPage />} />
+        <Route path="/info" element={<InfoPage />} />
         <Route
           path="/playground"
           element={

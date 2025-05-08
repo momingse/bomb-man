@@ -515,12 +515,6 @@ export default function RoomPage() {
                   BOMB MAN Game Room
                 </span>
               </div>
-              <div className="flex items-center">
-                <Clock className="h-4 w-4 mr-1 text-[#8aa8d0]" />
-                <span className="text-[#8aa8d0] text-xs pixel-text">
-                  Room created 5 minutes ago
-                </span>
-              </div>
             </div>
           </div>
         </footer>

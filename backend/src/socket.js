@@ -1,11 +1,29 @@
 import { logger } from "./logger.js";
 import User from "./models/User.js";
 
+const GRID_WIDTH = 15;
+const GRID_HEIGHT = 13;
+const BORDER_CONDITION = (x, y) =>
+  x === 0 || y === 0 || x === GRID_WIDTH - 1 || y === GRID_HEIGHT - 1;
+const INDESTRUCTIBLE_WALL = (x, y) => x % 2 === 0 && y % 2 === 0;
+const START_POSITIONS = [
+  [1, 1],
+  [GRID_WIDTH - 2, 1],
+  [1, GRID_HEIGHT - 2],
+  [GRID_WIDTH - 2, GRID_HEIGHT - 2],
+];
+const PLAYERS_COLORS = ["#e83b3b", "#3b82e8", "#50c878", "#ffcc00"];
+const HALF = 0.47;
+
+// State Stores
 const rooms = {};
 const onlinePlayers = {};
-
-// Game state tracking
 const gameStates = {};
+const gameLoops = {};
+
+const emitRooms = (io) => io.emit("rooms", Object.values(rooms));
+const emitOnline = (io) =>
+  io.emit("onlinePlayers", Object.values(onlinePlayers));
 
 export const socketHandler = (io) => {
   logger.info("Socket handler started");
@@ -13,32 +31,35 @@ export const socketHandler = (io) => {
   io.on("connection", (socket) => {
     logger.info(`Socket connected: ${socket.id}`);
 
-    socket.on("register", (data) => {
-      if (onlinePlayers[socket.id]) {
-        logger.info(`User ${data.username} already exists`);
-        return;
-      }
-      logger.info(`User ${data.username} registered`);
-      onlinePlayers[socket.id] = {
-        username: data.username,
-        avatar: data.avatar,
-      };
-      io.emit("onlinePlayers", Object.values(onlinePlayers));
-      io.emit("rooms", Object.values(rooms));
+    const emitUpdatedRooms = () => emitRooms(io);
+    const emitUpdatedOnline = () => emitOnline(io);
+
+    // Clean up helper
+    const removePlayer = () => {
+      const player = onlinePlayers[socket.id];
+      if (!player) return;
+      delete onlinePlayers[socket.id];
+      emitUpdatedOnline();
+    };
+
+    socket.on("register", ({ username, avatar }) => {
+      if (onlinePlayers[socket.id]) return;
+      logger.info(`User ${username} registered`);
+      onlinePlayers[socket.id] = { username, avatar };
+      emitUpdatedOnline();
+      emitUpdatedRooms();
     });
 
-    socket.on("createRoom", (data) => {
+    socket.on("createRoom", ({ name, maxPlayers }) => {
       const player = onlinePlayers[socket.id];
-      if (!player) {
-        logger.warn(`createRoom: no registered player for socket ${socket.id}`);
-        return;
-      }
-      logger.info(`Room ${data.name} created by ${player.username}`);
-
-      const roomInfo = {
-        id: socket.id,
-        name: data.name,
+      if (!player) return;
+      logger.info(`Room ${name} created by ${player.username}`);
+      const roomId = socket.id;
+      rooms[roomId] = {
+        id: roomId,
+        name,
         host: player.username,
+        sockets: [socket.id], // Track socket IDs directly
         players: [
           {
             username: player.username,
@@ -47,174 +68,86 @@ export const socketHandler = (io) => {
             isHost: true,
           },
         ],
-        maxPlayers: data.maxPlayers,
+        maxPlayers,
         started: false,
       };
-
-      rooms[socket.id] = roomInfo;
-      io.emit("rooms", Object.values(rooms));
-      socket.emit("roomCreated", roomInfo);
+      emitUpdatedRooms();
+      socket.emit("roomCreated", rooms[roomId]);
     });
 
     socket.on("joinRoom", (roomId) => {
-      const player = onlinePlayers[socket.id];
-      if (!player) {
-        logger.warn(`joinRoom: no registered player for socket ${socket.id}`);
-        return;
-      }
-      logger.info(`User ${player.username} joined room ${roomId}`);
-
       const room = rooms[roomId];
-      if (!room) {
-        logger.warn(`joinRoom: room ${roomId} does not exist`);
+      const player = onlinePlayers[socket.id];
+      if (
+        !player ||
+        !room ||
+        room.started ||
+        room.players.length >= room.maxPlayers
+      )
         return;
-      }
-      if (room.players.find((p) => p.username === player.username)) {
-        logger.info(`User ${player.username} already in room`);
-        return;
-      }
-      if (room.players.length >= room.maxPlayers) {
-        logger.warn(`joinRoom: room ${roomId} is full`);
-        return;
-      }
-      if (room.started) {
-        logger.warn(`joinRoom: room ${roomId} has already started`);
-        return;
-      }
-
+      if (room.players.some((p) => p.username === player.username)) return;
+      logger.info(`User ${player.username} joined room ${roomId}`);
+      room.sockets.push(socket.id);
       room.players.push({
         username: player.username,
         avatar: player.avatar,
         isReady: false,
         isHost: false,
       });
-      io.emit("rooms", Object.values(rooms));
+      emitUpdatedRooms();
     });
 
     socket.on("leaveRoom", () => {
       const player = onlinePlayers[socket.id];
-      if (!player) {
-        logger.warn(`leaveRoom: no registered player for socket ${socket.id}`);
-        return;
-      }
-      logger.info(`User ${player.username} left room`);
-
+      if (!player) return;
       const room = Object.values(rooms).find((r) =>
         r.players.some((p) => p.username === player.username),
       );
-      if (!room) {
-        logger.warn(`leaveRoom: user ${player.username} not in any room`);
-        return;
-      }
-
-      if (room.players.length === 1) {
-        delete rooms[room.id];
-        io.emit("rooms", Object.values(rooms));
-        return;
-      }
-
-      if (room.host === player.username) {
-        const newHost = room.players.find(
-          (p) => p.username !== player.username,
-        );
-        if (newHost) {
-          room.host = newHost.username;
-          newHost.isHost = true;
-          newHost.isReady = true;
-        }
-      }
-
+      if (!room) return;
+      logger.info(`User ${player.username} left room`);
+      // Remove socket and player
+      room.sockets = room.sockets.filter((id) => id !== socket.id);
       room.players = room.players.filter((p) => p.username !== player.username);
-      io.emit("rooms", Object.values(rooms));
+      // Reassign host if needed
+      if (room.players.length && room.host === player.username) {
+        const newHost = room.players[0];
+        room.host = newHost.username;
+        newHost.isHost = true;
+        newHost.isReady = true;
+      }
+      if (!room.players.length) delete rooms[room.id];
+      emitUpdatedRooms();
     });
 
     socket.on("toggleReady", ({ roomId, isReady }) => {
       const player = onlinePlayers[socket.id];
-      if (!player) {
-        logger.warn(
-          `toggleReady: no registered player for socket ${socket.id}`,
-        );
-        return;
-      }
-      logger.info(`User ${player.username} toggled ready in room ${roomId}`);
-
       const room = rooms[roomId];
-      if (!room) {
-        logger.warn(`toggleReady: room ${roomId} does not exist`);
-        return;
-      }
+      if (!player || !room) return;
       const participant = room.players.find(
         (p) => p.username === player.username,
       );
-      if (!participant) {
-        logger.warn(
-          `toggleReady: user ${player.username} not in room ${roomId}`,
-        );
-        return;
-      }
-
+      if (!participant) return;
       participant.isReady = isReady;
-      io.emit("rooms", Object.values(rooms));
+      emitUpdatedRooms();
     });
 
     socket.on("hostStartGame", ({ roomId }) => {
+      const room = rooms[roomId];
       const player = onlinePlayers[socket.id];
-      if (!player) {
-        logger.warn(
-          `hostStartGame: no registered player for socket ${socket.id}`,
-        );
-        return;
-      }
+      if (!player || !room || room.host !== player.username) return;
       logger.info(`User ${player.username} started game in room ${roomId}`);
 
-      const room = rooms[roomId];
-      if (!room) {
-        logger.warn(`hostStartGame: room ${roomId} does not exist`);
-        return;
-      }
-
-      const PLAYERS_COLORS = ["#e83b3b", "#3b82e8", "#50c878", "#ffcc00"];
+      // Initialize game state
       const map = generateGameMap();
-      gameStates[roomId] = {
-        players: room.players.map((p, i) => ({
-          username: p.username,
-          avatar: p.avatar,
-          score: 0,
-          kills: 0,
-          alive: true,
-          maxBombs: 1,
-          blastRange: 1,
-          speed: 1,
-          invincible: false,
-          color: PLAYERS_COLORS[i],
-          x: [1, 13, 1, 13][i % 4],
-          y: [1, 1, 11, 11][i % 4],
-          activeBombs: [], // Track bombs placed by this player
-          cheated: false,
-        })),
-        map,
-        bombs: [],
-        explosions: [],
-        powerUps: generateInitialPowerUps(map),
-        lastUpdateTime: Date.now(),
-        startedTime: Date.now(),
-        ended: false,
-      };
+      gameStates[roomId] = createInitialGameState(room.players, map);
+      room.started = true;
+      emitUpdatedRooms();
 
-      room.players.forEach((p) => {
-        const sid = Object.keys(onlinePlayers).find(
-          (k) => onlinePlayers[k]?.username === p.username,
-        );
-        if (sid) {
-          io.to(sid).emit("startGame", {
-            roomId,
-            gameState: gameStates[roomId],
-          });
-        }
+      // Notify each player
+      room.sockets.forEach((sid) => {
+        io.to(sid).emit("startGame", { roomId, gameState: gameStates[roomId] });
       });
 
-      room.started = true;
-      io.emit("rooms", Object.values(rooms));
       startGameLoop(roomId, io);
     });
 
@@ -475,172 +408,109 @@ export const socketHandler = (io) => {
 
     socket.on("disconnect", () => {
       logger.info(`Socket disconnected: ${socket.id}`);
-
-      // First check if the player exists
-      const player = onlinePlayers[socket.id];
-      if (!player) {
-        logger.info(`No registered player for socket ${socket.id}`);
-        return;
-      }
-
-      // Now we can safely check if user is in any room
-      const room = Object.values(rooms).find((room) =>
-        room.players.find((p) => p.username === player.username),
-      );
-
-      if (room) {
-        logger.info(`User ${player.username} left room due to disconnect`);
-
-        // If game is in progress, mark player as disconnected but keep in game
-        if (room.started && gameStates[room.id]) {
-          const playerIndex = gameStates[room.id].players.findIndex(
-            (p) => p.username === player.username,
+      // Handle room removal & game cleanup
+      Object.values(rooms).forEach((room) => {
+        if (room.sockets.includes(socket.id)) {
+          room.sockets = room.sockets.filter((id) => id !== socket.id);
+          room.players = room.players.filter(
+            (p) => onlinePlayers[id]?.username !== p.username,
           );
-          if (playerIndex !== -1) {
-            gameStates[room.id].players[playerIndex].disconnected = true;
-            gameStates[room.id].players[playerIndex].alive = false;
+          if (!room.players.length) {
+            stopGameLoop(room.id);
+            delete gameStates[room.id];
+            delete rooms[room.id];
           }
         }
-
-        // remove user from room
-        rooms[room.id].players = room.players.filter(
-          (p) => p.username !== player.username,
-        );
-
-        // If room is empty, remove it and stop the game loop
-        if (rooms[room.id].players.length === 0) {
-          logger.info(`Room ${room.id} is empty, removing`);
-          stopGameLoop(room.id);
-          delete gameStates[room.id];
-          delete rooms[room.id];
-        }
-
-        io.emit("rooms", Object.values(rooms));
-      }
-
-      // Finally remove the player from online players
-      logger.info(`User ${player.username} disconnected`);
-      delete onlinePlayers[socket.id];
-      io.emit("onlinePlayers", Object.values(onlinePlayers));
+      });
+      removePlayer();
     });
   });
 };
-
-// Game map generation
-const generateGameMap = () => {
-  const GRID_WIDTH = 15;
-  const GRID_HEIGHT = 13;
-
-  const map = Array(GRID_HEIGHT)
-    .fill(0)
-    .map(() => Array(GRID_WIDTH).fill(0));
-
-  // Add border walls
+// Utility Functions
+function generateGameMap() {
+  const map = Array.from({ length: GRID_HEIGHT }, () =>
+    Array(GRID_WIDTH).fill(0),
+  );
   for (let y = 0; y < GRID_HEIGHT; y++) {
     for (let x = 0; x < GRID_WIDTH; x++) {
-      // Border walls
-      if (x === 0 || y === 0 || x === GRID_WIDTH - 1 || y === GRID_HEIGHT - 1) {
-        map[y][x] = 1;
-      }
-      // Indestructible walls in a grid pattern
-      else if (x % 2 === 0 && y % 2 === 0) {
-        map[y][x] = 1;
-      }
-      // Random destructible walls (40% chance)
-      else if (Math.random() < 0.4) {
-        map[y][x] = 2;
-      }
+      if (BORDER_CONDITION(x, y) || INDESTRUCTIBLE_WALL(x, y)) map[y][x] = 1;
+      else if (Math.random() < 0.4) map[y][x] = 2;
     }
   }
-
-  // Ensure player starting positions are clear
-  const startPositions = [
-    [1, 1], // Top-left
-    [GRID_WIDTH - 2, 1], // Top-right
-    [1, GRID_HEIGHT - 2], // Bottom-left
-    [GRID_WIDTH - 2, GRID_HEIGHT - 2], // Bottom-right
-  ];
-
-  startPositions.forEach(([x, y]) => {
-    map[y][x] = 0; // Clear the starting position
-    // Also clear adjacent cells for movement
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        if (
-          x + dx >= 1 &&
-          x + dx < GRID_WIDTH - 1 &&
-          y + dy >= 1 &&
-          y + dy < GRID_HEIGHT - 1
-        ) {
-          map[y + dy][x + dx] = 0;
-        }
+  START_POSITIONS.forEach(([x, y]) => {
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (nx > 0 && nx < GRID_WIDTH - 1 && ny > 0 && ny < GRID_HEIGHT - 1)
+          map[ny][nx] = 0;
       }
-    }
   });
-
   return map;
-};
+}
 
-// Generate initial power-ups
-const generateInitialPowerUps = (map) => {
-  const GRID_WIDTH = 15;
-  const GRID_HEIGHT = 13;
-  const powerUps = [];
+function createInitialGameState(players, map) {
+  return {
+    players: players.map((p, i) => ({
+      ...p,
+      score: 0,
+      kills: 0,
+      alive: true,
+      maxBombs: 1,
+      blastRange: 1,
+      speed: 1,
+      invincible: false,
+      color: PLAYERS_COLORS[i],
+      x: START_POSITIONS[i][0],
+      y: START_POSITIONS[i][1],
+      activeBombs: [],
+      cheated: false,
+    })),
+    map,
+    bombs: [],
+    explosions: [],
+    powerUps: generateInitialPowerUps(map),
+    lastUpdateTime: Date.now(),
+    startedTime: Date.now(),
+    ended: false,
+  };
+}
+
+function generateInitialPowerUps(map) {
+  const emptyCells = [];
+  for (let y = 1; y < GRID_HEIGHT - 1; y++)
+    for (let x = 1; x < GRID_WIDTH - 1; x++) {
+      if (
+        !START_POSITIONS.some(([sx, sy]) => sx === x && sy === y) &&
+        map[y][x] === 0
+      )
+        emptyCells.push([x, y]);
+    }
   const powerUpTypes = ["speed", "range", "bombs", "inv"];
-
-  const possiblePositions = [];
-  for (let x = 1; x < GRID_WIDTH - 1; x++) {
-    for (let y = 1; y < GRID_HEIGHT - 1; y++) {
-      possiblePositions.push([x, y]);
-    }
+  const powerUps = [];
+  while (powerUps.length < 3 && emptyCells.length) {
+    const idx = Math.floor(Math.random() * emptyCells.length);
+    const [x, y] = emptyCells.splice(idx, 1)[0];
+    powerUps.push({
+      x,
+      y,
+      type: powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)],
+    });
   }
-
-  while (powerUps.length < 3) {
-    const randomIndex = Math.floor(Math.random() * possiblePositions.length);
-    const [x, y] = possiblePositions.splice(randomIndex, 1)[0];
-
-    // Check if position is empty
-    const GRID_WIDTH = 15;
-    const GRID_HEIGHT = 13;
-    const startPositions = [
-      [1, 1], // Top-left
-      [GRID_WIDTH - 2, 1], // Top-right
-      [1, GRID_HEIGHT - 2], // Bottom-left
-      [GRID_WIDTH - 2, GRID_HEIGHT - 2], // Bottom-right
-    ];
-
-    if (map[y][x] === 0 && !startPositions.includes([x, y])) {
-      const type =
-        powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-      powerUps.push({ x, y, type });
-    }
-  }
-
   return powerUps;
-};
+}
 
-// Game loops for active rooms
-const gameLoops = {};
+function startGameLoop(roomId, io) {
+  if (gameLoops[roomId]) clearInterval(gameLoops[roomId]);
+  gameLoops[roomId] = setInterval(() => updateGameState(roomId, io), 16);
+}
 
-// Start a game loop for a specific room
-const startGameLoop = (roomId, io) => {
-  if (gameLoops[roomId]) {
-    clearInterval(gameLoops[roomId]);
-  }
-
-  // Run game update at 60 FPS (approximately)
-  gameLoops[roomId] = setInterval(() => {
-    updateGameState(roomId, io);
-  }, 16); // ~60 FPS
-};
-
-// Stop a game loop
-const stopGameLoop = (roomId) => {
+function stopGameLoop(roomId) {
   if (gameLoops[roomId]) {
     clearInterval(gameLoops[roomId]);
     delete gameLoops[roomId];
   }
-};
+}
 
 // Modified canMoveTo function to handle bomb pass-through
 const canMoveTo = (player, testX, testY, username, gameState, HALF = 0.47) => {

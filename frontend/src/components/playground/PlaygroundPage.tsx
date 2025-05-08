@@ -202,6 +202,15 @@ export default function PlaygroundPage() {
               <Button
                 variant="outline"
                 size="sm"
+                className="pixel-button bg-[#2a4a7f] text-white"
+                onClick={() => navigate("/info")}
+              >
+                <Settings className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">GAME INFO</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 className="pixel-button bg-[#e83b3b] text-white hover:bg-[#c52f2f]"
                 onClick={handleLogout}
               >
@@ -310,7 +319,7 @@ export default function PlaygroundPage() {
                           }
                           className="w-full pixel-input"
                         >
-                          {[2, 4, 6, 8].map((num) => (
+                          {[2, 4].map((num) => (
                             <option key={num} value={num}>
                               {num} Players
                             </option>
