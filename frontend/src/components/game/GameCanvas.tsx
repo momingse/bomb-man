@@ -1,37 +1,168 @@
 import { GameState, useGameState } from "@/state/gameState";
 import { usePlayersStore } from "@/state/player";
 import { useRoomStore } from "@/state/room";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import { useSocket } from "../SocketProvier";
 
+// Constants moved outside component to prevent recreation
 const TILE_SIZE = 40;
 const GRID_WIDTH = 15;
 const GRID_HEIGHT = 13;
 const CANVAS_WIDTH = GRID_WIDTH * TILE_SIZE;
 const CANVAS_HEIGHT = GRID_HEIGHT * TILE_SIZE;
+const FPS = 60;
+const FRAME_TIME = 1000 / FPS;
+
+// Preloaded images for better performance
+const preloadImages = () => {
+  const images = {
+    emptyTile: new Image(),
+    indestructibleWall: new Image(),
+    destructibleWall: new Image(),
+  };
+
+  // Create off-screen canvases to pre-render static elements
+  const offscreenCanvases = {
+    emptyTile: document.createElement("canvas"),
+    indestructibleWall: document.createElement("canvas"),
+    destructibleWall: document.createElement("canvas"),
+  };
+
+  // Set canvas sizes
+  Object.values(offscreenCanvases).forEach((canvas) => {
+    canvas.width = TILE_SIZE;
+    canvas.height = TILE_SIZE;
+  });
+
+  // Pre-render empty tile
+  const emptyCtx = offscreenCanvases.emptyTile.getContext("2d");
+  if (emptyCtx) {
+    emptyCtx.fillStyle = "#4a6ea5";
+    emptyCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    emptyCtx.strokeStyle = "#3b5c8f";
+    emptyCtx.lineWidth = 1;
+    emptyCtx.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
+  }
+
+  // Pre-render indestructible wall
+  const indestCtx = offscreenCanvases.indestructibleWall.getContext("2d");
+  if (indestCtx) {
+    indestCtx.fillStyle = "#1a2e4a";
+    indestCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    indestCtx.fillStyle = "#0f1a2a";
+    indestCtx.fillRect(2, 2, TILE_SIZE - 4, TILE_SIZE - 4);
+  }
+
+  // Pre-render destructible wall
+  const destCtx = offscreenCanvases.destructibleWall.getContext("2d");
+  if (destCtx) {
+    destCtx.fillStyle = "#8aa8d0";
+    destCtx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    destCtx.strokeStyle = "#4a6ea5";
+    destCtx.lineWidth = 2;
+    destCtx.beginPath();
+    destCtx.moveTo(10, 10);
+    destCtx.lineTo(TILE_SIZE - 10, TILE_SIZE - 10);
+    destCtx.stroke();
+    destCtx.beginPath();
+    destCtx.moveTo(TILE_SIZE - 10, 10);
+    destCtx.lineTo(10, TILE_SIZE - 10);
+    destCtx.stroke();
+  }
+
+  return offscreenCanvases;
+};
+
+// Audio manager to handle all audio efficiently
+class AudioManager {
+  private audioElements: { [key: string]: HTMLAudioElement } = {};
+  private enabled: boolean = true;
+
+  constructor() {
+    this.audioElements = {
+      background: new Audio("/background.mp3"),
+      powerup: new Audio("/powerup.mp3"),
+      explosion: new Audio("/explosion.mp3"),
+    };
+
+    // Configure audio elements
+    this.audioElements.background.loop = true;
+    this.audioElements.background.volume = 0.2;
+
+    // Pre-load audio
+    Object.values(this.audioElements).forEach((audio) => {
+      audio.load();
+    });
+  }
+
+  play(name: string): void {
+    if (!this.enabled) return;
+
+    const audio = this.audioElements[name];
+    if (audio) {
+      // Create a clone for overlapping sounds
+      if (name === "explosion" || name === "powerup") {
+        const clone = audio.cloneNode() as HTMLAudioElement;
+        clone.volume = audio.volume;
+        clone
+          .play()
+          .catch((err) => console.warn(`${name} audio play prevented:`, err));
+        // Remove element after playback to prevent memory leaks
+        clone.onended = () => clone.remove();
+      } else {
+        audio.currentTime = 0;
+        audio
+          .play()
+          .catch((err) => console.warn(`${name} audio play prevented:`, err));
+      }
+    }
+  }
+
+  startBackground(): void {
+    if (!this.enabled) return;
+    this.audioElements.background
+      .play()
+      .catch((err) => console.warn("Background audio play prevented:", err));
+  }
+
+  stopAll(): void {
+    Object.values(this.audioElements).forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled;
+    if (!enabled) this.stopAll();
+  }
+}
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const lastUpdateTimeRef = useRef<number>(0);
-
-  const backgroundAudioRef = useRef<HTMLAudioElement>(
-    new Audio("/background.mp3"),
+  const lastFrameTimeRef = useRef<number>(0);
+  const audioManagerRef = useRef<AudioManager | null>(null);
+  const offscreenCanvasesRef = useRef<Record<string, HTMLCanvasElement> | null>(
+    null,
   );
-  const powerupAudioRef = useRef<HTMLAudioElement>(new Audio("/powerup.mp3"));
-  const explosionAudioRef = useRef<HTMLAudioElement>(
-    new Audio("/explosion.mp3"),
-  );
+  const animationFrameIdRef = useRef<number>(0);
 
+  // Game state
   const { players, bombs, explosions, powerUps, map, setGameState } =
     useGameState();
   const { currentRoom } = useRoomStore();
   const { player: currentPlayer } = usePlayersStore();
-  const currentPlayerState = players.find(
-    (player) => player.username === currentPlayer?.username,
+
+  // Get current player state once
+  const currentPlayerState = useMemo(
+    () => players.find((player) => player.username === currentPlayer?.username),
+    [players, currentPlayer?.username],
   );
 
+  // Use refs for values that don't need to trigger re-renders
   const previousExplosions = useRef<GameState["explosions"]>([]);
   const stateRef = useRef({ players, bombs, explosions, powerUps, map });
+  const dirtyRef = useRef(true); // Track if redraw is needed
 
   const { socket, isConnected } = useSocket();
   const inputRef = useRef({
@@ -42,48 +173,56 @@ export default function GameCanvas() {
     cheat: false,
   });
 
+  // Update state ref whenever props change to avoid stale closures
   useEffect(() => {
     stateRef.current = { players, bombs, explosions, powerUps, map };
+    dirtyRef.current = true; // Mark for redraw
   }, [players, bombs, explosions, powerUps, map]);
 
+  // Initialize audio and preloaded images
   useEffect(() => {
-    const bg = backgroundAudioRef.current;
-    bg.loop = true;
-    bg.volume = 0.2;
-    bg.play().catch((err) =>
-      console.warn("Background audio play prevented:", err),
-    );
+    audioManagerRef.current = new AudioManager();
+    audioManagerRef.current.startBackground();
+
+    // Pre-render tile images
+    offscreenCanvasesRef.current = preloadImages();
 
     return () => {
-      bg.pause();
-      bg.currentTime = 0;
+      if (audioManagerRef.current) {
+        audioManagerRef.current.stopAll();
+      }
+
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
     };
   }, []);
 
+  // Socket event handler for power-up sounds
   useEffect(() => {
     if (!socket || !isConnected || !currentPlayerState) return;
 
     const handlePlayPowerUp = () => {
-      const audio = powerupAudioRef.current;
-      audio.currentTime = 0;
-      audio
-        .play()
-        .catch((err) => console.warn("Powerup audio play prevented:", err));
+      if (audioManagerRef.current) {
+        audioManagerRef.current.play("powerup");
+      }
     };
 
     socket.on("playPowerUpSound", handlePlayPowerUp);
 
     return () => {
       socket.off("playPowerUpSound", handlePlayPowerUp);
-      powerupAudioRef.current.pause();
-      powerupAudioRef.current.currentTime = 0;
     };
-  }, []);
+  }, [socket, isConnected, currentPlayerState]);
 
+  // Keyboard input handler
   useEffect(() => {
     if (!socket || !isConnected || !currentPlayerState) return;
 
-    // Master key handler
+    // Keyboard handler with debouncing for movement broadcast
+    let lastInputBroadcastTime = 0;
+    const INPUT_BROADCAST_INTERVAL = 50; // ms
+
     const handleKey = (e: KeyboardEvent, isDown: boolean) => {
       // SPACE: only on initial keydown (no repeats)
       if (e.code === "Space") {
@@ -109,32 +248,53 @@ export default function GameCanvas() {
       }
 
       // Movement keys
+      let inputChanged = false;
       switch (e.code) {
         case "KeyW":
-          inputRef.current.up = isDown;
+          if (inputRef.current.up !== isDown) {
+            inputRef.current.up = isDown;
+            inputChanged = true;
+          }
           break;
         case "KeyS":
-          inputRef.current.down = isDown;
+          if (inputRef.current.down !== isDown) {
+            inputRef.current.down = isDown;
+            inputChanged = true;
+          }
           break;
         case "KeyA":
-          inputRef.current.left = isDown;
+          if (inputRef.current.left !== isDown) {
+            inputRef.current.left = isDown;
+            inputChanged = true;
+          }
           break;
         case "KeyD":
-          inputRef.current.right = isDown;
+          if (inputRef.current.right !== isDown) {
+            inputRef.current.right = isDown;
+            inputChanged = true;
+          }
           break;
         default:
           return; // ignore everything else
       }
 
-      // broadcast new input
-      socket.emit("playerInput", {
-        roomId: currentRoom?.id,
-        input: inputRef.current,
-      });
+      if (inputChanged) {
+        const now = Date.now();
+
+        // Throttle sending input to server
+        if (now - lastInputBroadcastTime > INPUT_BROADCAST_INTERVAL) {
+          socket.emit("playerInput", {
+            roomId: currentRoom?.id,
+            input: inputRef.current,
+          });
+          lastInputBroadcastTime = now;
+        }
+      }
+
       e.preventDefault();
     };
 
-    // create stable references for removal
+    // Create stable references for removal
     const onKeyDown = (e: KeyboardEvent) => handleKey(e, true);
     const onKeyUp = (e: KeyboardEvent) => handleKey(e, false);
 
@@ -147,85 +307,70 @@ export default function GameCanvas() {
     };
   }, [socket, isConnected, currentRoom, currentPlayerState]);
 
+  // Socket game state update handler
   useEffect(() => {
     if (!socket || !isConnected) return;
 
     const handleGameUpdate = (gameState: any) => {
       setGameState(gameState);
     };
+
     socket.on("gameStateUpdate", handleGameUpdate);
 
     return () => {
       socket.off("gameStateUpdate", handleGameUpdate);
     };
-  }, [socket, isConnected]);
+  }, [socket, isConnected, setGameState]);
 
-  // Draw the game
-  const draw = (
-    gameState?: Pick<
-      GameState,
-      "players" | "bombs" | "explosions" | "powerUps" | "map"
-    >,
-  ) => {
+  // Optimized draw function using memoization and pre-rendered assets
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const gameState = stateRef.current;
     if (!gameState) return;
-    const { players, bombs, explosions, powerUps, map } = gameState;
 
-    const ctx = canvas.getContext("2d");
+    const { players, bombs, explosions, powerUps, map } = gameState;
+    const offscreenCanvases = offscreenCanvasesRef.current;
+
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
+
+    // Only redraw if state has changed
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw map
-    for (let y = 0; y < GRID_HEIGHT; y++) {
-      for (let x = 0; x < GRID_WIDTH; x++) {
-        const tileType = map[y][x];
+    // Draw map using pre-rendered tiles for better performance
+    if (offscreenCanvases) {
+      for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < GRID_WIDTH; x++) {
+          const tileType = map[y][x];
 
-        if (tileType === 0) {
-          // Empty tile
-          ctx.fillStyle = "#4a6ea5";
-          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-
-          // Grid lines
-          ctx.strokeStyle = "#3b5c8f";
-          ctx.lineWidth = 1;
-          ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        } else if (tileType === 1) {
-          // Indestructible wall
-          ctx.fillStyle = "#1a2e4a";
-          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-
-          // Wall details
-          ctx.fillStyle = "#0f1a2a";
-          ctx.fillRect(
-            x * TILE_SIZE + 2,
-            y * TILE_SIZE + 2,
-            TILE_SIZE - 4,
-            TILE_SIZE - 4,
-          );
-        } else if (tileType === 2) {
-          // Destructible wall
-          ctx.fillStyle = "#8aa8d0";
-          ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-
-          // Wall cracks
-          ctx.strokeStyle = "#4a6ea5";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(x * TILE_SIZE + 10, y * TILE_SIZE + 10);
-          ctx.lineTo(
-            x * TILE_SIZE + TILE_SIZE - 10,
-            y * TILE_SIZE + TILE_SIZE - 10,
-          );
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(x * TILE_SIZE + TILE_SIZE - 10, y * TILE_SIZE + 10);
-          ctx.lineTo(x * TILE_SIZE + 10, y * TILE_SIZE + TILE_SIZE - 10);
-          ctx.stroke();
+          if (tileType === 0) {
+            // Empty tile
+            ctx.drawImage(
+              offscreenCanvases.emptyTile,
+              x * TILE_SIZE,
+              y * TILE_SIZE,
+            );
+          } else if (tileType === 1) {
+            // Indestructible wall
+            ctx.drawImage(
+              offscreenCanvases.indestructibleWall,
+              x * TILE_SIZE,
+              y * TILE_SIZE,
+            );
+          } else if (tileType === 2) {
+            // Destructible wall
+            ctx.drawImage(
+              offscreenCanvases.destructibleWall,
+              x * TILE_SIZE,
+              y * TILE_SIZE,
+            );
+          }
         }
       }
     }
@@ -330,18 +475,15 @@ export default function GameCanvas() {
       );
     });
 
+    // Check for new explosions and play sound
     const haveNewExplosions = explosions.some((exp) => {
-      // check if exp in previousExplosions
       return !previousExplosions.current.some(
         (prevExp) => exp.x === prevExp.x && exp.y === prevExp.y,
       );
     });
-    if (haveNewExplosions) {
-      const explosionSound = explosionAudioRef.current;
-      if (explosionSound) {
-        explosionSound.currentTime = 0;
-        explosionSound.play();
-      }
+
+    if (haveNewExplosions && audioManagerRef.current) {
+      audioManagerRef.current.play("explosion");
     }
     previousExplosions.current = explosions;
 
@@ -356,8 +498,8 @@ export default function GameCanvas() {
         TILE_SIZE,
       );
 
-      // Explosion prticles
-      ctx.fillStyle = `rgb(255, 204, 0, ${alpha})`;
+      // Explosion particles
+      ctx.fillStyle = `rgba(255, 204, 0, ${alpha})`;
       ctx.beginPath();
       ctx.arc(
         explosion.x * TILE_SIZE + TILE_SIZE / 2,
@@ -418,22 +560,26 @@ export default function GameCanvas() {
         ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
       }
     });
-  };
+  }, [currentPlayer?.username]);
 
+  // Animation loop with frame limiting
   useEffect(() => {
-    let animationFrameId: number;
+    const animate = (timestamp: number) => {
+      // Limit frame rate for better performance
+      if (timestamp - lastFrameTimeRef.current >= FRAME_TIME) {
+        draw();
+        lastFrameTimeRef.current = timestamp;
+      }
 
-    const animate = () => {
-      draw(stateRef.current);
-      animationFrameId = requestAnimationFrame(animate);
+      animationFrameIdRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationFrameIdRef.current = requestAnimationFrame(animate);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      cancelAnimationFrame(animationFrameIdRef.current);
     };
-  }, []);
+  }, [draw]);
 
   return (
     <div className="game-canvas-container">
