@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   server: {
+    port: 8000,
     host: true,
     proxy: {
       "/api": {
@@ -42,5 +43,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    port: 8000,
   },
 });

@@ -25,7 +25,7 @@ const expressApp = express();
 const httpServer = createServer(expressApp);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:8000",
     credentials: true,
   },
 });
@@ -42,7 +42,7 @@ const store = new SessionStore({
 expressApp.use(bodyParser.json());
 expressApp.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: "http://localhost:8000",
     credentials: true,
   }),
 );
