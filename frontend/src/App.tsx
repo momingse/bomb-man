@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { Route, Routes } from "react-router";
 import AuthPage from "./components/auth/AuthPage";
+import GamePage from "./components/game/GamePage";
+import InfoPage from "./components/info/InfoPage";
 import PlaygroundPage from "./components/playground/PlaygroundPage";
 import { RequireAuth } from "./components/RequireAuth";
 import RoomPage from "./components/room/RoomPage";
-import GamePage from "./components/game/GamePage";
-import InfoPage from "./components/info/InfoPage";
 
 function App() {
   return (

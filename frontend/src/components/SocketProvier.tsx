@@ -25,14 +25,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const { setPlayers } = useOnlinePlayers();
   const { updateCurrentRoom, updateGameRooms } = useRoomStore();
 
-  const {
-    id = "",
-    username = "",
-    wins = 0,
-    gamesPlayed = 0,
-    rank = "Unranked",
-    avatar = "",
-  } = player ?? {};
+  const { id = "", username = "", avatar = "" } = player ?? {};
 
   useEffect(() => {
     if (!id) {

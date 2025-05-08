@@ -15,12 +15,6 @@ const FRAME_TIME = 1000 / FPS;
 
 // Preloaded images for better performance
 const preloadImages = () => {
-  const images = {
-    emptyTile: new Image(),
-    indestructibleWall: new Image(),
-    destructibleWall: new Image(),
-  };
-
   // Create off-screen canvases to pre-render static elements
   const offscreenCanvases = {
     emptyTile: document.createElement("canvas"),

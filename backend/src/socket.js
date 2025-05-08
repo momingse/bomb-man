@@ -54,7 +54,8 @@ export const socketHandler = (io) => {
       const player = onlinePlayers[socket.id];
       if (!player) return;
       logger.info(`Room ${name} created by ${player.username}`);
-      const roomId = socket.id;
+      // Generate a unique room ID
+      const roomId = new Date().getTime().toString();
       rooms[roomId] = {
         id: roomId,
         name,

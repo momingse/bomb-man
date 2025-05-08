@@ -1,41 +1,30 @@
-import type React from "react";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGameState } from "@/state/gameState";
+import { usePlayersStore } from "@/state/player";
+import { useRoomStore } from "@/state/room";
 import {
-  Bomb,
-  Users,
-  LogOut,
-  Settings,
-  Play,
-  CheckCircle,
-  XCircle,
-  Crown,
-  UserPlus,
-  Send,
-  Map,
-  Clock,
   AlertTriangle,
+  Bomb,
+  CheckCircle,
+  Crown,
   Info,
+  LogOut,
+  Play,
+  Users,
+  XCircle
 } from "lucide-react";
+import { useEffect } from "react";
 import {
   useNavigate,
-  useParams,
-  useRoutes,
-  useSearchParams,
+  useSearchParams
 } from "react-router";
-import { useRoomStore } from "@/state/room";
-import { usePlayersStore } from "@/state/player";
 import { useSocket } from "../SocketProvier";
-import { useGameState } from "@/state/gameState";
 
 export default function RoomPage() {
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get("id");
-
-  const [activeTab, setActiveTab] = useState("players");
 
   const { setGameState } = useGameState();
 
@@ -95,7 +84,7 @@ export default function RoomPage() {
 
     const handleStartGame = ({ id, gameState }: any) => {
       setGameState(gameState);
-      navigate("/game?id=" + currentRoom?.id);
+      navigate("/game?id=" + id);
     };
 
     socket.on("startGame", handleStartGame);
@@ -262,7 +251,6 @@ export default function RoomPage() {
                 <Tabs
                   defaultValue="players"
                   className="w-full"
-                  onValueChange={setActiveTab}
                 >
                   {/* <TabsList className="grid w-full grid-cols-3 mb-6 pixel-tabs"> */}
                   <TabsList className="grid w-full grid-cols-1 mb-6 pixel-tabs">

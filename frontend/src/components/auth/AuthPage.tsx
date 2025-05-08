@@ -28,7 +28,6 @@ export default function AuthPage() {
   const {
     register: registerLogin,
     handleSubmit: handleLoginSubmit,
-    formState: { errors: loginErrors },
     reset: resetLogin,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

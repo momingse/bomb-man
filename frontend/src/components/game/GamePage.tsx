@@ -29,8 +29,7 @@ export default function GamePage() {
   const gameLoopRef = useRef<NodeJS.Timeout | null>(null);
   const gameTimeRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { players, startedTime, ended, setGameState, setEnded } =
-    useGameState();
+  const { players, ended, setEnded } = useGameState();
   const { player: currentPlayer, setPlayer } = usePlayersStore();
   const { currentRoom } = useRoomStore();
 

@@ -1,35 +1,37 @@
 import type React from "react";
 
-import { useState, useEffect, useMemo } from "react";
+import { logoutRequest } from "@/api/auth";
+import { leaderboardRequest } from "@/api/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOnlinePlayers } from "@/state/onlinePlayer";
+import { usePlayersStore } from "@/state/player";
+import { Room, useRoomStore } from "@/state/room";
 import {
-  Bomb,
-  Users,
-  Clock,
-  Play,
-  Plus,
-  LogOut,
-  Settings,
-  Trophy,
-  Crown,
-  Star,
   Award,
-  Zap,
-  ChevronsLeft,
+  Bomb,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
   ChevronsRight,
+  Clock,
+  Crown,
+  LogOut,
+  Play,
+  Plus,
+  Settings,
+  Star,
+  Trophy,
+  Users,
+  Zap,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { logoutRequest } from "@/api/auth";
-import { usePlayersStore } from "@/state/player";
-import { leaderboardRequest } from "@/api/user";
 import { useSocket } from "../SocketProvier";
-import { useOnlinePlayers } from "@/state/onlinePlayer";
-import { Room, useRoomStore } from "@/state/room";
+
+const ROOMS_PER_PAGE = 5;
 
 export default function PlaygroundPage() {
   const [showCreateRoom, setShowCreateRoom] = useState(false);
@@ -48,14 +50,12 @@ export default function PlaygroundPage() {
     }[]
   >([]);
   const [numberOfPlayers, setNumberOfPlayers] = useState(0);
-  const [activeTab, setActiveTab] = useState("rooms");
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [roomsPerPage, setRoomsPerPage] = useState(5);
   const [roomFilter, setRoomFilter] = useState("");
 
-  const { player: currentPlayer, voidPlayers } = usePlayersStore();
+  const { player: currentPlayer } = usePlayersStore();
   const {
     username = "",
     wins = 0,
@@ -119,9 +119,9 @@ export default function PlaygroundPage() {
   }, [roomFilter, gameRooms]);
 
   // Calculate pagination values
-  const totalPages = Math.ceil(filteredRooms.length / roomsPerPage);
-  const indexOfLastRoom = currentPage * roomsPerPage;
-  const indexOfFirstRoom = indexOfLastRoom - roomsPerPage;
+  const totalPages = Math.ceil(filteredRooms.length / ROOMS_PER_PAGE);
+  const indexOfLastRoom = currentPage * ROOMS_PER_PAGE;
+  const indexOfFirstRoom = indexOfLastRoom - ROOMS_PER_PAGE;
   const currentRooms = filteredRooms.slice(indexOfFirstRoom, indexOfLastRoom);
 
   // Pagination controls
@@ -365,11 +365,7 @@ export default function PlaygroundPage() {
                   </>
                 ) : (
                   <>
-                    <Tabs
-                      defaultValue="rooms"
-                      className="w-full"
-                      onValueChange={setActiveTab}
-                    >
+                    <Tabs defaultValue="rooms" className="w-full">
                       <TabsList className="grid w-full grid-cols-2 mb-6 pixel-tabs">
                         <TabsTrigger value="rooms" className="pixel-tab">
                           Game Rooms
@@ -464,7 +460,7 @@ export default function PlaygroundPage() {
                         )}
 
                         {/* Pagination Controls */}
-                        {filteredRooms.length > roomsPerPage && (
+                        {filteredRooms.length > ROOMS_PER_PAGE && (
                           <div className="mt-4 flex justify-center">
                             <div className="pixel-pagination">
                               <Button

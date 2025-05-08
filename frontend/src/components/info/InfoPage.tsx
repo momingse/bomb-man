@@ -1,22 +1,19 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Bomb,
-  Play,
-  Info,
-  Gamepad2,
-  Trophy,
   ArrowRight,
+  Bomb,
   Flame,
-  Star,
+  Gamepad2,
+  Info,
   KeyRound,
+  Play,
+  Star,
+  Trophy,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 
-export default function IntroPage() {
-  const [activeTab, setActiveTab] = useState("description");
-
+export default function InfoPage() {
   const navigate = useNavigate();
 
   const startGame = () => {
@@ -46,11 +43,7 @@ export default function IntroPage() {
         {/* Main Content */}
         <div className="pixel-container bg-[#2a4a7f] p-1 mb-6">
           <div className="pixel-inner bg-[#4a6ea5] p-6">
-            <Tabs
-              defaultValue="description"
-              className="w-full"
-              onValueChange={setActiveTab}
-            >
+            <Tabs defaultValue="description" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 pixel-tabs">
                 <TabsTrigger value="description" className="pixel-tab">
                   <Info className="h-4 w-4 mr-2" />
