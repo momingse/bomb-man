@@ -1,4 +1,4 @@
-import { useGameState } from "@/state/gameState";
+import { GameState, useGameState } from "@/state/gameState";
 import { usePlayersStore } from "@/state/player";
 import { useRoomStore } from "@/state/room";
 import { useEffect, useRef } from "react";
@@ -13,6 +13,16 @@ const CANVAS_HEIGHT = GRID_HEIGHT * TILE_SIZE;
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const lastUpdateTimeRef = useRef<number>(0);
+
+  const backgroundAudioRef = useRef<HTMLAudioElement>(
+    new Audio("/background.mp3"),
+  );
+  const powerupAudioRef = useRef<HTMLAudioElement>(new Audio("/powerup.mp3"));
+  const explosionAudioRef = useRef<HTMLAudioElement>(
+    new Audio("/explosion.mp3"),
+  );
+
+  const previousExplosions = useRef<GameState["explosions"]>([]);
 
   const { players, bombs, explosions, powerUps, map, setGameState } =
     useGameState();
@@ -30,6 +40,38 @@ export default function GameCanvas() {
     right: false,
     cheat: false,
   });
+
+  useEffect(() => {
+    const bg = backgroundAudioRef.current;
+    bg.loop = true;
+    bg.volume = 0.2;
+    bg.play().catch((err) =>
+      console.warn("Background audio play prevented:", err),
+    );
+
+    return () => {
+      bg.pause();
+      bg.currentTime = 0;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!socket || !isConnected || !currentPlayerState) return;
+
+    const handlePlayPowerUp = () => {
+      const audio = powerupAudioRef.current;
+      audio.currentTime = 0;
+      audio
+        .play()
+        .catch((err) => console.warn("Powerup audio play prevented:", err));
+    };
+
+    socket.on("playPowerUpSound", handlePlayPowerUp);
+
+    return () => {
+      socket.off("playPowerUpSound", handlePlayPowerUp);
+    };
+  }, []);
 
   useEffect(() => {
     if (!socket || !isConnected || !currentPlayerState) return;
@@ -272,6 +314,21 @@ export default function GameCanvas() {
         bomb.y * TILE_SIZE + TILE_SIZE / 2,
       );
     });
+
+    const haveNewExplosions = explosions.some((exp) => {
+      // check if exp in previousExplosions
+      return !previousExplosions.current.some(
+        (prevExp) => exp.x === prevExp.x && exp.y === prevExp.y,
+      );
+    });
+    if (haveNewExplosions) {
+      const explosionSound = explosionAudioRef.current;
+      if (explosionSound) {
+        explosionSound.currentTime = 0;
+        explosionSound.play();
+      }
+    }
+    previousExplosions.current = explosions;
 
     // Draw explosions
     explosions.forEach((explosion) => {

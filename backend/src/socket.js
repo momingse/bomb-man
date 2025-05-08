@@ -310,7 +310,6 @@ export const socketHandler = (io) => {
         // This player is initially allowed to walk over this bomb
         passThroughPlayers: [playerIndex, ...possibleCollisionPlayerIndex],
       };
-      console.log(newBomb);
 
       // Place the bomb
       gameStates[roomId].bombs.push(newBomb);
@@ -759,6 +758,7 @@ const updateGameState = (roomId, io) => {
           }
         });
 
+        let playPowerUpSound = false;
         // Get PowerUps
         gameState.powerUps.forEach((powerUp, index) => {
           collidedPosition.forEach(([px, py]) => {
@@ -793,8 +793,18 @@ const updateGameState = (roomId, io) => {
 
             // Update player stats
             player.score = (player.score || 0) + 50;
+
+            // If player is powerUp then socket emit user to play powerUp sound
+            playPowerUpSound = true;
           });
         });
+        if (playPowerUpSound) {
+          const playerSocketId = Object.keys(onlinePlayers).find(
+            (socketId) => onlinePlayers[socketId].username === username,
+          );
+
+          io.to(playerSocketId).emit("playPowerUpSound");
+        }
       }
     });
   }
