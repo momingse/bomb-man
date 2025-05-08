@@ -51,13 +51,22 @@ export default function GamePage() {
     clearInterval(gameTimeRef.current as NodeJS.Timeout);
 
     // if player win the game
-    setPlayer({
-      ...currentPlayer,
-      wins:
-        currentPlayer.wins +
-        (winner.username === currentPlayer.username ? 1 : 0),
-      gamesPlayed: currentPlayer.gamesPlayed + 1,
-    });
+    if (!winner) {
+      setPlayer({
+        ...currentPlayer,
+        wins: currentPlayer.wins,
+        gamesPlayed: currentPlayer.gamesPlayed + 1,
+      });
+      return;
+    } else {
+      setPlayer({
+        ...currentPlayer,
+        wins:
+          currentPlayer.wins +
+          (winner.username === currentPlayer.username ? 1 : 0),
+        gamesPlayed: currentPlayer.gamesPlayed + 1,
+      });
+    }
   }, [ended]);
 
   // Handle countdown
