@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>bomb-man</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 800px;
+        margin: auto;
+        padding: 1rem;
+        line-height: 1.6;
+      }
+      code {
+        background: #f4f4f4;
+        padding: 0.2em 0.4em;
+        border-radius: 4px;
+      }
+      pre {
+        background: #f0f0f0;
+        padding: 1em;
+        overflow-x: auto;
+        border-radius: 4px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 1rem;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 0.5em;
+      }
+      th {
+        background: #eee;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>bomb-man</h1>
+    <p>
+      <em
+        >A full-stack application with backend and frontend running
+        concurrently.</em
+      >
+    </p>
+
+    <h2>Prerequisites</h2>
+    <ul>
+      <li><a href="https://nodejs.org/">Node.js</a> v14 or newer</li>
+      <li>npm (comes with Node.js)</li>
+    </ul>
+
+    <h2>Installation</h2>
+    <pre><code>npm install</code></pre>
+    <p>This will:</p>
+    <ol>
+      <li>Install <code>concurrently</code> in the root.</li>
+      <li>Automatically <code>cd backend &amp;&amp; npm install</code></li>
+      <li>Then <code>cd frontend &amp;&amp; npm install</code></li>
+    </ol>
+
+    <h2>Development</h2>
+    <pre><code>npm run dev</code></pre>
+    <p>
+      - <strong>Backend</strong>: runs in watch mode (reloads on changes).<br />
+      - <strong>Frontend</strong>: runs Vite/dev server (with hot-reload).
+    </p>
+
+    <h2>Building for Production</h2>
+    <pre><code>npm run build-frontend</code></pre>
+    <p>This outputs optimized assets to <code>frontend/dist</code>.</p>
+
+    <h2>Hosting</h2>
+    <pre><code>npm run host</code></pre>
+    <p>
+      - Backend: starts in dev mode on port 8000 (default).<br />
+      - Frontend: serves the built files via Vite preview.
+    </p>
+
+    <h3>Accessing the App</h3>
+    <ul>
+      <li>
+        <strong>Local machine</strong>:<br />
+        <a href="http://localhost:8000/">http://localhost:8000/</a>
+      </li>
+      <li>
+        <strong>From another device on your network</strong>:<br />
+        After running <code>npm run host</code>, look in the console for a line
+        like:<br />
+        <pre><code>[1]   ➜  Network: http://192.168.1.42:8000/</code></pre>
+        Replace <code>192.168.1.42</code> with the IP shown.
+      </li>
+    </ul>
+
+    <h2>Available Scripts</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Script</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>npm run postinstall</code></td>
+          <td>
+            Installs both backend &amp; frontend dependencies automatically
+          </td>
+        </tr>
+        <tr>
+          <td><code>npm run dev</code></td>
+          <td>Runs backend + frontend in parallel for development</td>
+        </tr>
+        <tr>
+          <td><code>npm run dev-backend</code></td>
+          <td>Runs only the backend in dev mode</td>
+        </tr>
+        <tr>
+          <td><code>npm run dev-frontend</code></td>
+          <td>Runs only the frontend in dev mode</td>
+        </tr>
+        <tr>
+          <td><code>npm run build-frontend</code></td>
+          <td>Builds frontend for production</td>
+        </tr>
+        <tr>
+          <td><code>npm run serve</code></td>
+          <td>Serves both backend &amp; built frontend in parallel</td>
+        </tr>
+        <tr>
+          <td><code>npm run host</code></td>
+          <td>Builds frontend then serves backend &amp; frontend preview</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>License</h2>
+    <p>ISC</p>
+  </body>
+</html>
