@@ -430,6 +430,11 @@ export default function GameCanvas() {
         height={CANVAS_HEIGHT}
         className="pixel-canvas m-auto"
       />
+      {currentPlayerState && !currentPlayerState.alive && (
+        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+          <span className="text-white text-4xl font-bold">Game Over</span>
+        </div>
+      )}
     </div>
   );
 }
