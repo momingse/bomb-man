@@ -12,6 +12,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     proxy: {
       "/api": {
         target: "http://localhost:3000",
@@ -35,6 +36,11 @@ export default defineConfig({
           });
         },
       },
+      "/socket.io": {
+        target: "http://localhost:3000",
+        ws: true, // proxy WebSocket
+        changeOrigin: true,
+      },
     },
-  }
+  },
 });

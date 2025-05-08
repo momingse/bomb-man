@@ -40,7 +40,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    const socketInstance = io("http://localhost:3000");
+    const socketInstance = io();
     socketInstance.on("connect", () => {
       setIsConnected(true);
     });

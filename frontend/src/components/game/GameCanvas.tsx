@@ -70,6 +70,8 @@ export default function GameCanvas() {
 
     return () => {
       socket.off("playPowerUpSound", handlePlayPowerUp);
+      powerupAudioRef.current.pause();
+      powerupAudioRef.current.currentTime = 0;
     };
   }, []);
 
