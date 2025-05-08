@@ -93,10 +93,16 @@ export default function RoomPage() {
   useEffect(() => {
     if (!socket || !isConnected) return;
 
-    socket.on("startGame", ({id, gameState}) => {
-      setGameState(gameState)
+    const handleStartGame = ({ id, gameState }: any) => {
+      setGameState(gameState);
       navigate("/game?id=" + currentRoom?.id);
-    });
+    };
+
+    socket.on("startGame", handleStartGame);
+
+    return () => {
+      socket.off("startGame", handleStartGame);
+    };
   }, [socket, isConnected]);
 
   return (

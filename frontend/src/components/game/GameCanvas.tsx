@@ -22,8 +22,6 @@ export default function GameCanvas() {
     new Audio("/explosion.mp3"),
   );
 
-  const previousExplosions = useRef<GameState["explosions"]>([]);
-
   const { players, bombs, explosions, powerUps, map, setGameState } =
     useGameState();
   const { currentRoom } = useRoomStore();
@@ -31,6 +29,9 @@ export default function GameCanvas() {
   const currentPlayerState = players.find(
     (player) => player.username === currentPlayer?.username,
   );
+
+  const previousExplosions = useRef<GameState["explosions"]>([]);
+  const stateRef = useRef({ players, bombs, explosions, powerUps, map });
 
   const { socket, isConnected } = useSocket();
   const inputRef = useRef({
@@ -40,6 +41,10 @@ export default function GameCanvas() {
     right: false,
     cheat: false,
   });
+
+  useEffect(() => {
+    stateRef.current = { players, bombs, explosions, powerUps, map };
+  }, [players, bombs, explosions, powerUps, map]);
 
   useEffect(() => {
     const bg = backgroundAudioRef.current;
@@ -156,9 +161,17 @@ export default function GameCanvas() {
   }, [socket, isConnected]);
 
   // Draw the game
-  const draw = () => {
+  const draw = (
+    gameState?: Pick<
+      GameState,
+      "players" | "bombs" | "explosions" | "powerUps" | "map"
+    >,
+  ) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    if (!gameState) return;
+    const { players, bombs, explosions, powerUps, map } = gameState;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -411,7 +424,7 @@ export default function GameCanvas() {
     let animationFrameId: number;
 
     const animate = () => {
-      draw();
+      draw(stateRef.current);
       animationFrameId = requestAnimationFrame(animate);
     };
 
@@ -420,7 +433,7 @@ export default function GameCanvas() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [players, bombs, explosions, powerUps, map]);
+  }, []);
 
   return (
     <div className="game-canvas-container">

@@ -95,10 +95,16 @@ export default function PlaygroundPage() {
       return;
     }
 
-    socket.on("roomCreated", (data) => {
+    const handleCreateRoom = (data: Room) => {
       updateGameRooms([...gameRooms, data]);
       handleJoinRoom(data);
-    });
+    };
+
+    socket.on("roomCreated", handleCreateRoom);
+
+    return () => {
+      socket.off("roomCreated", handleCreateRoom);
+    };
   }, [socket, isConnected]);
 
   // Filter rooms based on search term
