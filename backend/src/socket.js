@@ -413,7 +413,7 @@ export const socketHandler = (io) => {
         if (room.sockets.includes(socket.id)) {
           room.sockets = room.sockets.filter((id) => id !== socket.id);
           room.players = room.players.filter(
-            (p) => onlinePlayers[id]?.username !== p.username,
+            (player) => player.username !== onlinePlayers[socket.id].username,
           );
           if (!room.players.length) {
             stopGameLoop(room.id);
