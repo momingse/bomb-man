@@ -114,6 +114,7 @@ export default function GameCanvas() {
     powerUps: [],
     map: [],
   } as any);
+  const needsEmit = useRef(false);
 
   const { players, bombs, explosions, powerUps, map, setGameState } =
     useGameState();
@@ -134,7 +135,6 @@ export default function GameCanvas() {
     right: false,
     cheat: false,
   });
-  const lastBroadcast = useRef(0);
 
   // sync state
   useEffect(() => {
@@ -174,56 +174,85 @@ export default function GameCanvas() {
   // keyboard
   useEffect(() => {
     if (!socket || !isConnected || !meState) return;
+
     const handler = (e: KeyboardEvent, down: boolean) => {
-      if (e.code === "Space" && down && !e.repeat) {
-        socket.emit("placeBomb", {
-          roomId: currentRoom?.id,
-          x: Math.round(meState.x),
-          y: Math.round(meState.y),
-        });
-        e.preventDefault();
-        return;
-      }
-      if (e.code === "KeyC") {
-        input.current.cheat = down;
-        socket.emit("cheatMode", {
-          roomId: currentRoom?.id,
-          input: input.current,
-        });
-        e.preventDefault();
-        return;
-      }
       let changed = false;
-      if (e.code === "KeyW")
-        (changed = input.current.up !== down), (input.current.up = down);
-      else if (e.code === "KeyS")
-        (changed = input.current.down !== down), (input.current.down = down);
-      else if (e.code === "KeyA")
-        (changed = input.current.left !== down), (input.current.left = down);
-      else if (e.code === "KeyD")
-        (changed = input.current.right !== down), (input.current.right = down);
-      else return;
-      if (changed) {
-        const now = Date.now();
-        if (now - lastBroadcast.current > INPUT_BROADCAST_INTERVAL) {
-          socket.emit("playerInput", {
-            roomId: currentRoom?.id,
+
+      switch (e.code) {
+        case "Space":
+          if (down && !e.repeat) {
+            socket.emit("placeBomb", {
+              roomId: currentRoom!.id,
+              x: Math.round(meState.x),
+              y: Math.round(meState.y),
+            });
+            e.preventDefault();
+          }
+          return;
+
+        case "KeyC":
+          input.current.cheat = down;
+          socket.emit("cheatMode", {
+            roomId: currentRoom!.id,
             input: input.current,
           });
-          lastBroadcast.current = now;
-        }
+          e.preventDefault();
+          return;
+
+        case "KeyW":
+          changed = input.current.up !== down;
+          input.current.up = down;
+          break;
+        case "KeyS":
+          changed = input.current.down !== down;
+          input.current.down = down;
+          break;
+        case "KeyA":
+          changed = input.current.left !== down;
+          input.current.left = down;
+          break;
+        case "KeyD":
+          changed = input.current.right !== down;
+          input.current.right = down;
+          break;
+        default:
+          return;
+      }
+
+      if (changed) {
+        needsEmit.current = true;
       }
       e.preventDefault();
     };
+
     const down = (e: KeyboardEvent) => handler(e, true);
     const up = (e: KeyboardEvent) => handler(e, false);
+
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
   }, [socket, isConnected, currentRoom, meState]);
+
+  // Broadcaster useEffect
+  useEffect(() => {
+    if (!socket || !isConnected || !currentRoom) return;
+
+    const intervalId = setInterval(() => {
+      if (!needsEmit.current) return;
+
+      socket.emit("playerInput", {
+        roomId: currentRoom.id,
+        input: input.current,
+      });
+      needsEmit.current = false;
+    }, INPUT_BROADCAST_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [socket, isConnected, currentRoom]);
 
   // draw loop
   const draw = useCallback(() => {
