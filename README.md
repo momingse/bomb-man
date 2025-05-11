@@ -2,6 +2,8 @@
 
 > A full-stack application with backend and frontend running concurrently.
 
+![bomb-man](https://github.com/user-attachments/assets/35234398-d825-4f64-95c6-de8eaa1f5387)
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v14 or newer
